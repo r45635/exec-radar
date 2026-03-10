@@ -1,0 +1,6 @@
+[project]
+name = "exec-radar-normalizers"
+version = "0.1.0"
+description = "Job normalizer interfaces and implementations for Exec Radar"
+requires-python = ">=3.12"
+dependencies = ["exec-radar-schemas"]

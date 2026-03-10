@@ -1,0 +1,6 @@
+[project]
+name = "exec-radar-rankers"
+version = "0.1.0"
+description = "Job ranker interfaces and implementations for Exec Radar"
+requires-python = ">=3.12"
+dependencies = ["exec-radar-schemas", "pydantic>=2.7.0"]

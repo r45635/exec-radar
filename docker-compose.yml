@@ -1,0 +1,27 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_ENV=development
+      - APP_DEBUG=false
+    env_file:
+      - .env.example
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: ["python", "apps/worker/worker.py"]
+    environment:
+      - APP_ENV=development
+      - WORKER_INTERVAL_SECONDS=3600
+    env_file:
+      - .env.example
+    depends_on:
+      - api

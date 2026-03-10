@@ -1,0 +1,14 @@
+[project]
+name = "exec-radar-api"
+version = "0.1.0"
+description = "Exec Radar FastAPI application"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "python-dotenv>=1.0.0",
+    "exec-radar-schemas",
+    "exec-radar-normalizers",
+]

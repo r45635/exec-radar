@@ -1,0 +1,6 @@
+[project]
+name = "exec-radar-notifications"
+version = "0.1.0"
+description = "Notification interfaces for Exec Radar"
+requires-python = ">=3.12"
+dependencies = ["pydantic>=2.7.0"]
