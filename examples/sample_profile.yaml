@@ -1,0 +1,95 @@
+# Sample Target Profile for Exec Radar
+#
+# Copy this file and customise it to describe the executive role you are
+# pursuing.  The ranking engine scores every collected posting against
+# this profile and surfaces the best matches.
+#
+# All fields are optional — omitted fields fall back to built-in defaults.
+
+# ── Title preferences ─────────────────────────────────────────────────
+# Case-insensitive.  An exact match on a title scores 1.0; a partial
+# overlap (substring match) scores 0.5.
+target_titles:
+  - chief operating officer
+  - coo
+  - vp of operations
+  - vice president of operations
+  - svp operations
+  - head of operations
+  - director of operations
+  - head of business transformation
+
+# Titles that are clearly irrelevant — any match scores 0.0.
+excluded_titles:
+  - intern
+  - junior
+
+# ── Seniority preferences ────────────────────────────────────────────
+# Full-score seniority levels (1.0).
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+# Acceptable but not ideal (partial score ~ 0.6).
+acceptable_seniority:
+  - director
+  - head
+
+# ── Location / remote preferences ────────────────────────────────────
+preferred_remote_policies:
+  - remote
+  - hybrid
+
+# Geographic locations to boost (case-insensitive substring match).
+target_locations:
+  - New York
+  - London
+  - Chicago
+
+# ── Industry preferences ─────────────────────────────────────────────
+# Industries matched as bonus keywords against job tags.
+target_industries:
+  - manufacturing
+  - logistics
+  - healthcare
+
+# ── Company preferences ──────────────────────────────────────────────
+# Companies to boost or penalize (case-insensitive, exact match).
+preferred_companies:
+  - Acme Corp
+  - TechScale Inc.
+
+excluded_companies: []
+
+# ── Skills / keywords ────────────────────────────────────────────────
+# Core domain keywords — used for skills-match scoring.
+required_keywords:
+  - operations
+  - supply chain
+  - logistics
+  - strategy
+  - transformation
+  - change management
+  - "P&L"
+  - manufacturing
+
+# Nice-to-have keywords — boost score when found.
+preferred_keywords:
+  - continuous improvement
+  - lean
+  - six sigma
+  - digital transformation
+
+# Anti-keywords — penalize postings containing these.
+excluded_keywords:
+  - entry level
+  - unpaid
+
+# ── Scoring weights ──────────────────────────────────────────────────
+# Must be between 0.0 and 1.0.  The overall fit score is the weighted
+# sum of title, seniority, location, and skills dimension scores.
+weight_title: 0.35
+weight_seniority: 0.25
+weight_location: 0.15
+weight_skills: 0.25

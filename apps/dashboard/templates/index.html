@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard – Exec Radar{% endblock %}
+
+{% block content %}
+
+{# ── Health status ─────────────────────────────────────────── #}
+<div class="status-bar" data-testid="health-status">
+    {% if health_ok %}
+    <span class="status-dot ok"></span>
+    <span class="status-text">Backend healthy</span>
+    <span class="status-detail">v{{ health_version }}</span>
+    {% else %}
+    <span class="status-dot error"></span>
+    <span class="status-text">Backend unreachable</span>
+    <span class="status-detail">{{ health_error }}</span>
+    {% endif %}
+</div>
+
+{# ── Jobs card ─────────────────────────────────────────────── #}
+<div class="card" data-testid="jobs-card">
+    <div class="card-header">
+        <h2>Ranked Opportunities ({{ job_count }})</h2>
+        <a href="/dashboard/" class="btn">&#x21bb; Refresh</a>
+    </div>
+    <div class="card-body">
+        {% if jobs_error %}
+        <div class="error-state" data-testid="jobs-error">
+            <div class="icon">&#x26A0;</div>
+            <p>Could not load jobs: {{ jobs_error }}</p>
+        </div>
+        {% elif jobs | length == 0 %}
+        <div class="empty-state" data-testid="jobs-empty">
+            <div class="icon">&#x1F4CB;</div>
+            <p>No opportunities found yet.</p>
+            <p>Run the pipeline or check your collector configuration.</p>
+        </div>
+        {% else %}
+        <table class="jobs-table" data-testid="jobs-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Title</th>
+                    <th>Company</th>
+                    <th>Location</th>
+                    <th>Remote</th>
+                    <th>Seniority</th>
+                    <th>Score</th>
+                    <th>Source</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sj in jobs %}
+                <tr data-testid="job-row">
+                    <td>{{ loop.index }}</td>
+                    <td>
+                        {% if sj.job.source_url %}
+                        <a class="job-link" href="{{ sj.job.source_url }}" target="_blank" rel="noopener">
+                            {{ sj.job.title }}
+                        </a>
+                        {% else %}
+                        {{ sj.job.title }}
+                        {% endif %}
+                    </td>
+                    <td>{{ sj.job.company or "—" }}</td>
+                    <td>{{ sj.job.location or "—" }}</td>
+                    <td>
+                        {% if sj.job.remote_policy.value == "remote" %}
+                        <span class="badge badge-remote">remote</span>
+                        {% elif sj.job.remote_policy.value == "hybrid" %}
+                        <span class="badge badge-hybrid">hybrid</span>
+                        {% elif sj.job.remote_policy.value == "onsite" %}
+                        <span class="badge badge-onsite">onsite</span>
+                        {% else %}
+                        <span class="badge badge-unknown">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if sj.job.seniority.value != "other" %}
+                        <span class="badge badge-seniority">{{ sj.job.seniority.value | replace("_", " ") }}</span>
+                        {% else %}
+                        <span class="badge badge-unknown">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="score-bar">
+                            <span class="bar"><span class="fill" style="width: {{ (sj.score.overall * 100) | int }}%"></span></span>
+                            <span class="score-value">{{ "%.0f" | format(sj.score.overall * 100) }}%</span>
+                        </span>
+                    </td>
+                    <td>{{ sj.job.source }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

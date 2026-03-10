@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Exec Radar{% endblock %}</title>
+    <link rel="stylesheet" href="/dashboard/static/style.css" />
+</head>
+<body>
+    <nav class="navbar">
+        <h1>Exec Radar</h1>
+        <span class="version">v{{ version }}</span>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
