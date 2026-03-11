@@ -12,3 +12,5 @@ dist/
 .DS_Store
 zip/
 *.db
+*.sqlite3
+.data/

@@ -34,13 +34,49 @@ Exec Radar is an AI-powered executive job intelligence platform.  It continuousl
 
 The ranking engine scores jobs against a **configurable `TargetProfile`** rather than relying on hardcoded assumptions.  A profile describes:
 
-- **target\_titles / excluded\_titles** — desired and blacklisted job titles.
+- **target\_titles / adjacent\_titles / excluded\_titles** — desired, adjacent, and blacklisted job titles.
 - **target\_seniority / acceptable\_seniority** — ideal vs. acceptable seniority.
-- **preferred\_remote\_policies / target\_locations** — remote-work and geographic preferences.
-- **target\_industries** — industries matched as bonus keywords against tags.
+- **preferred\_remote\_policies / target\_locations / target\_geographies** — remote-work and geographic preferences.
+- **target\_industries / adjacent\_industries** — primary and adjacent industry preferences.
 - **preferred\_companies / excluded\_companies** — company-level boost or penalty.
-- **required\_keywords / preferred\_keywords / excluded\_keywords** — domain skill matching.
-- **weight\_\*** — per-dimension scoring weights (title, seniority, location, skills).
+- **must\_have\_keywords** — deal-breaker keywords (penalized if ALL absent).
+- **strong\_keywords** — high-value domain keywords.
+- **nice\_to\_have\_keywords** — bonus uplift keywords.
+- **excluded\_keywords** — anti-keywords that penalize a posting.
+- **preferred\_scope\_keywords** — scope indicators (global, multi-site, P&L size).
+- **weight\_\*** — per-dimension scoring weights across six dimensions.
+
+#### Scoring dimensions (6)
+
+| Dimension          | What it measures |
+|--------------------|-----------------|
+| **title**          | Target / adjacent / family-based title match |
+| **seniority**      | C-level / VP / Director alignment |
+| **industry**       | Target and adjacent industry overlap |
+| **scope**          | Executive scope indicators in description |
+| **geography**      | Remote policy + location + region match |
+| **keyword\_clusters** | Domain cluster overlap (semiconductor, automotive, exec-ops, supply chain) |
+
+#### Title normalization
+
+Similar executive titles are mapped to canonical **title families** (e.g., "COO", "VP\_OPERATIONS", "HEAD\_MANUFACTURING") via `packages/normalizers/title_families.py`.  This allows semantically equivalent titles to score consistently.
+
+#### Keyword clusters
+
+Four domain-specific keyword clusters are defined in `packages/rankers/keyword_clusters.py`:
+
+1. **semiconductor\_manufacturing** — wafer, fab, yield, cleanroom, etc.
+2. **automotive\_quality** — IATF, APQP, FMEA, OEM, etc.
+3. **executive\_operations\_leadership** — lean, six sigma, P&L, transformation, etc.
+4. **supply\_chain\_industrialization** — NPI, S&OP, procurement, ramp-up, etc.
+
+#### Structured output
+
+Each `FitScore` now includes:
+- `dimension_scores` — dict of all six dimension scores.
+- `why_matched` — list of positive-match reasons.
+- `why_penalized` — list of penalty reasons.
+- `red_flags` — list of hard negatives.
 
 A sample profile lives at `examples/sample_profile.yaml`.  All fields have sensible defaults so `TargetProfile()` works out of the box.
 

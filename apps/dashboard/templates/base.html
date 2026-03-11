@@ -7,12 +7,22 @@
     <link rel="stylesheet" href="/dashboard/static/style.css" />
 </head>
 <body>
-    <nav class="navbar">
-        <h1>Exec Radar</h1>
-        <span class="version">v{{ version }}</span>
+    <nav class="navbar" data-testid="navbar">
+        <div class="nav-left">
+            <svg class="nav-logo" viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
+            <h1>Exec <span class="brand-accent">Radar</span></h1>
+            <div class="nav-links">
+                <a href="/dashboard/" class="nav-link">Jobs</a>
+                <a href="/dashboard/profiles" class="nav-link">Profiles</a>
+            </div>
+        </div>
+        <div class="nav-right">
+            <span class="version">v{{ version }}</span>
+        </div>
     </nav>
     <main class="container">
         {% block content %}{% endblock %}
     </main>
+    {% block scripts %}{% endblock %}
 </body>
 </html>

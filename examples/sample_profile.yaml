@@ -5,10 +5,23 @@
 # this profile and surfaces the best matches.
 #
 # All fields are optional — omitted fields fall back to built-in defaults.
+#
+# The ranker computes six dimension scores:
+#   title | seniority | industry | scope | geography | keyword_clusters
+# Each is weighted and combined into a single overall score (0-1).
+#
+# Keyword clusters scored:
+#   semiconductor_manufacturing, fabless_foundry_osat,
+#   automotive_quality, executive_operations_leadership,
+#   supply_chain_industrialization
+#
+# Post-scoring penalties are applied for software-heavy, GTM/business-only,
+# misleading ops titles (no industrial evidence), too-junior roles,
+# and narrow single-site/plant scope when executive scope is expected.
 
 # ── Title preferences ─────────────────────────────────────────────────
-# Case-insensitive.  An exact match on a title scores 1.0; a partial
-# overlap (substring match) scores 0.5.
+# Case-insensitive.  An exact match on a target title scores 1.0;
+# an adjacent title scores 0.6; a recognised ops-family title scores 0.5.
 target_titles:
   - chief operating officer
   - coo
@@ -19,10 +32,29 @@ target_titles:
   - director of operations
   - head of business transformation
 
+# Adjacent titles — related but not primary targets (score 0.6).
+adjacent_titles:
+  - vp manufacturing
+  - vice president manufacturing
+  - svp manufacturing
+  - head of manufacturing
+  - director of manufacturing
+  - vp supply chain
+  - head of supply chain
+  - vp industrial operations
+  - head of industrial operations
+  - plant director
+  - general manager operations
+  - vp operational excellence
+  - head of operational excellence
+
 # Titles that are clearly irrelevant — any match scores 0.0.
 excluded_titles:
   - intern
   - junior
+  - entry level
+  - associate
+  - assistant
 
 # ── Seniority preferences ────────────────────────────────────────────
 # Full-score seniority levels (1.0).
@@ -43,27 +75,94 @@ preferred_remote_policies:
 
 # Geographic locations to boost (case-insensitive substring match).
 target_locations:
-  - New York
-  - London
-  - Chicago
+  - Paris
+  - Lyon
+  - Munich
+  - Grenoble
+
+# Broader geographic regions (matched against location text).
+target_geographies:
+  - france
+  - germany
+  - switzerland
+  - europe
+  - united states
+  - usa
 
 # ── Industry preferences ─────────────────────────────────────────────
-# Industries matched as bonus keywords against job tags.
+# Primary target industries.
 target_industries:
-  - manufacturing
+  - semiconductor
+  - electronics
+  - automotive
+  - industrial manufacturing
+  - advanced manufacturing
+  - aerospace
+
+# Adjacent / interesting industries (partial score).
+adjacent_industries:
+  - energy
+  - chemicals
+  - defense
+  - medical devices
+  - heavy industry
   - logistics
-  - healthcare
 
 # ── Company preferences ──────────────────────────────────────────────
-# Companies to boost or penalize (case-insensitive, exact match).
-preferred_companies:
-  - Acme Corp
-  - TechScale Inc.
-
+preferred_companies: []
 excluded_companies: []
 
-# ── Skills / keywords ────────────────────────────────────────────────
-# Core domain keywords — used for skills-match scoring.
+# ── Keywords (tiered) ────────────────────────────────────────────────
+# Must-have: posting missing ALL of these is heavily penalized.
+must_have_keywords:
+  - operations
+  - manufacturing
+  - industrial
+
+# Strong: significant score contribution.
+strong_keywords:
+  - supply chain
+  - "P&L"
+  - transformation
+  - continuous improvement
+  - lean
+  - six sigma
+  - operational excellence
+  - quality
+  - production
+  - plant
+
+# Nice-to-have: small uplift.
+nice_to_have_keywords:
+  - change management
+  - strategy
+  - digital transformation
+  - ERP
+  - SAP
+  - capex
+  - scalability
+  - KPI
+  - OKR
+
+# Anti-keywords — penalize postings containing these.
+excluded_keywords:
+  - entry level
+  - unpaid
+  - internship
+
+# ── Scope keywords ───────────────────────────────────────────────────
+# Indicators of executive scope (multi-site, global, P&L size).
+preferred_scope_keywords:
+  - global
+  - multi-site
+  - regional
+  - international
+  - "p&l responsibility"
+  - budget
+  - headcount
+  - direct reports
+
+# ── Legacy fields (backward compat) ──────────────────────────────────
 required_keywords:
   - operations
   - supply chain
@@ -74,22 +173,16 @@ required_keywords:
   - "P&L"
   - manufacturing
 
-# Nice-to-have keywords — boost score when found.
 preferred_keywords:
   - continuous improvement
   - lean
   - six sigma
   - digital transformation
 
-# Anti-keywords — penalize postings containing these.
-excluded_keywords:
-  - entry level
-  - unpaid
-
-# ── Scoring weights ──────────────────────────────────────────────────
-# Must be between 0.0 and 1.0.  The overall fit score is the weighted
-# sum of title, seniority, location, and skills dimension scores.
-weight_title: 0.35
-weight_seniority: 0.25
-weight_location: 0.15
-weight_skills: 0.25
+# ── Scoring weights (6 dimensions, should sum to 1.0) ────────────────
+weight_title: 0.25
+weight_seniority: 0.15
+weight_industry: 0.15
+weight_scope: 0.10
+weight_geography: 0.10
+weight_keyword_clusters: 0.25

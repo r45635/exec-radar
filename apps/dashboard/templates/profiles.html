@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Profiles - Exec Radar{% endblock %}
+
+{% block content %}
+<div class="profiles-header">
+    <h2>Target Profiles</h2>
+    <div class="profiles-actions">
+        <a href="/dashboard/profiles/new" class="btn btn-primary">+ New Profile</a>
+        <a href="/dashboard/profiles/upload/form" class="btn btn-secondary">Upload YAML</a>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+{% if profiles %}
+<div class="profiles-table-wrap">
+    <table class="profiles-table" data-testid="profiles-table">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in profiles %}
+            <tr data-testid="profile-row" data-profile-id="{{ p.id }}">
+                <td>
+                    <a href="/dashboard/profiles/{{ p.id }}" class="profile-name-link">
+                        <strong>{{ p.name }}</strong>
+                    </a>
+                    {% if p.description %}
+                    <div class="profile-desc">{{ p.description[:80] }}{% if p.description|length > 80 %}...{% endif %}</div>
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="status-badge status-{{ p.status }}">{{ p.status }}</span>
+                </td>
+                <td><span class="source-badge">{{ p.source_type }}</span></td>
+                <td class="date-cell">{{ p.created_at }}</td>
+                <td class="date-cell">{{ p.updated_at }}</td>
+                <td class="actions-cell">
+                    <a href="/dashboard/profiles/{{ p.id }}/edit" class="btn btn-sm" title="Edit">Edit</a>
+                    {% if not p.is_active and not p.is_suspended %}
+                    <form method="post" action="/dashboard/profiles/{{ p.id }}/activate" class="inline-form">
+                        <button type="submit" class="btn btn-sm btn-success" title="Activate">Activate</button>
+                    </form>
+                    {% endif %}
+                    {% if not p.is_suspended %}
+                    <form method="post" action="/dashboard/profiles/{{ p.id }}/suspend" class="inline-form">
+                        <button type="submit" class="btn btn-sm btn-warning" title="Suspend">Suspend</button>
+                    </form>
+                    {% endif %}
+                    {% if p.is_suspended %}
+                    <form method="post" action="/dashboard/profiles/{{ p.id }}/unsuspend" class="inline-form">
+                        <button type="submit" class="btn btn-sm" title="Unsuspend">Unsuspend</button>
+                    </form>
+                    {% endif %}
+                    <a href="/dashboard/profiles/{{ p.id }}/export" class="btn btn-sm" title="Export YAML">Export</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No profiles yet. Create one or upload a YAML file.</p>
+</div>
+{% endif %}
+{% endblock %}

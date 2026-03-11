@@ -18,9 +18,16 @@ class TestTargetProfileDefaults:
         assert len(profile.required_keywords) > 0
 
     def test_default_weights_sum(self) -> None:
-        """Default weights should sum to 1.0."""
+        """Default dimension weights should sum to 1.0."""
         p = TargetProfile()
-        total = p.weight_title + p.weight_seniority + p.weight_location + p.weight_skills
+        total = (
+            p.weight_title
+            + p.weight_seniority
+            + p.weight_industry
+            + p.weight_scope
+            + p.weight_geography
+            + p.weight_keyword_clusters
+        )
         assert total == pytest.approx(1.0)
 
     def test_frozen(self) -> None:

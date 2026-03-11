@@ -5,6 +5,8 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 from apps.api.models import HealthResponse, JobsResponse
+from packages.db.profile_repository import resolve_active_target_profile
+from packages.db.profile_session import get_session
 from packages.pipeline import run_pipeline
 from packages.services import build_pipeline_components
 
@@ -30,7 +32,12 @@ async def list_jobs() -> JobsResponse:
     3. **Rank** normalized postings against the target profile.
     4. Return scored results sorted by fit.
     """
-    collector, normalizer, ranker = build_pipeline_components()
+    session = await get_session()
+    async with session:
+        active_profile = await resolve_active_target_profile(session)
+    collector, normalizer, ranker = build_pipeline_components(
+        profile=active_profile,
+    )
     scored_jobs = await run_pipeline(
         collector=collector,
         normalizer=normalizer,

@@ -34,6 +34,8 @@ class GreenhouseCollector(BaseCollector):
     Args:
         board_token: The company's Greenhouse board identifier
             (e.g. ``"discord"``).
+        company_name: Human-readable company name to attach to postings.
+            If ``None``, the board token is title-cased.
         http_client: Optional pre-configured :class:`httpx.AsyncClient`.
             If ``None``, a new client is created per ``collect()`` call.
             Inject a custom client for testing or proxy configuration.
@@ -45,10 +47,12 @@ class GreenhouseCollector(BaseCollector):
         self,
         board_token: str,
         *,
+        company_name: str | None = None,
         http_client: httpx.AsyncClient | None = None,
         content: bool = True,
     ) -> None:
         self._board_token = board_token
+        self._company_name = company_name or board_token.replace("_", " ").title()
         self._http_client = http_client
         self._content = content
 
@@ -132,7 +136,7 @@ class GreenhouseCollector(BaseCollector):
             source_id=str(job["id"]),
             source_url=job.get("absolute_url"),
             title=job.get("title", "Untitled"),
-            company=None,  # Greenhouse board-level — company is implicit
+            company=self._company_name,
             location=location_name,
             description=content_str or "",
             salary_raw=None,  # Greenhouse rarely exposes salary in the API

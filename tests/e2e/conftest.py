@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 
@@ -15,6 +18,11 @@ _PORT = 18765
 @pytest.fixture(scope="session")
 def base_url() -> Generator[str, None, None]:
     """Start the FastAPI app in a subprocess and return the base URL."""
+    tmp_dir = tempfile.TemporaryDirectory()
+    prefs_db = Path(tmp_dir.name) / "dashboard_prefs.sqlite3"
+    env = dict(os.environ)
+    env["EXEC_RADAR_DASHBOARD_PREFS_DB"] = str(prefs_db)
+
     proc = subprocess.Popen(  # noqa: S603
         [
             sys.executable,
@@ -28,6 +36,7 @@ def base_url() -> Generator[str, None, None]:
             "--log-level",
             "error",
         ],
+        env=env,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
@@ -48,3 +57,4 @@ def base_url() -> Generator[str, None, None]:
     yield url
     proc.terminate()
     proc.wait(timeout=5)
+    tmp_dir.cleanup()

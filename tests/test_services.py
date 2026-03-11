@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from packages.collectors.base import BaseCollector
+from packages.collectors.composite_collector import CompositeCollector
 from packages.collectors.greenhouse_collector import GreenhouseCollector
 from packages.collectors.mock_collector import MockCollector
 from packages.normalizers.base import BaseNormalizer
@@ -79,10 +80,25 @@ class TestBuildCollectorSelector:
         assert isinstance(c, GreenhouseCollector)
         assert c.source_name == "greenhouse:discord"
 
-    def test_greenhouse_missing_board_raises(self) -> None:
-        """Greenhouse without a board token should raise ValueError."""
-        with pytest.raises(ValueError, match="board token"):
-            build_collector("greenhouse")
+    def test_greenhouse_default_boards(self) -> None:
+        """Greenhouse without a board token should use default semiconductor boards."""
+        c = build_collector("greenhouse")
+        assert isinstance(c, CompositeCollector)
+        assert "lattice" in c.source_name
+        assert "tenstorrent" in c.source_name
+
+    def test_greenhouse_multi_boards(self) -> None:
+        """Comma-separated boards should produce a CompositeCollector."""
+        c = build_collector("greenhouse", greenhouse_board="lattice,tenstorrent")
+        assert isinstance(c, CompositeCollector)
+        assert "greenhouse:lattice" in c.source_name
+        assert "greenhouse:tenstorrent" in c.source_name
+
+    def test_greenhouse_single_board_not_composite(self) -> None:
+        """A single board should return a plain GreenhouseCollector."""
+        c = build_collector("greenhouse", greenhouse_board="lattice")
+        assert isinstance(c, GreenhouseCollector)
+        assert c.source_name == "greenhouse:lattice"
 
     def test_unknown_collector_raises(self) -> None:
         """Unknown collector name should raise ValueError."""

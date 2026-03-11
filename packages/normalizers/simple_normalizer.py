@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import re
 
 from packages.normalizers.base import BaseNormalizer
@@ -58,9 +59,9 @@ class SimpleNormalizer(BaseNormalizer):
             source=raw.source,
             source_id=raw.source_id,
             source_url=raw.source_url,
-            title=raw.title.strip(),
-            company=raw.company,
-            location=raw.location,
+            title=self._normalize_unicode(raw.title.strip()),
+            company=self._normalize_unicode(raw.company) if raw.company else None,
+            location=self._normalize_unicode(raw.location) if raw.location else None,
             remote_policy=remote_policy,
             seniority=seniority,
             description_plain=self._strip_html(raw.description),
@@ -74,6 +75,20 @@ class SimpleNormalizer(BaseNormalizer):
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _normalize_unicode(text: str) -> str:
+        """Normalize special Unicode characters to ASCII equivalents."""
+        if not text:
+            return text
+        text = text.replace("\u2014", "-")  # em dash → hyphen
+        text = text.replace("\u2013", "-")  # en dash → hyphen
+        text = text.replace("\u2026", "...")  # ellipsis → three dots
+        text = text.replace("\u201c", '"')  # left double quote
+        text = text.replace("\u201d", '"')  # right double quote
+        text = text.replace("\u2018", "'")  # left single quote
+        text = text.replace("\u2019", "'")  # right single quote
+        return text
 
     @staticmethod
     def _infer_seniority(title: str) -> SeniorityLevel:
@@ -108,15 +123,25 @@ class SimpleNormalizer(BaseNormalizer):
         high = float(match.group(2).replace(",", "")) if match.group(2) else None
         return low, high, currency
 
-    @staticmethod
-    def _strip_html(text: str) -> str:
-        """Remove HTML tags (naive approach)."""
-        return re.sub(r"<[^>]+>", "", text).strip()
+    def _strip_html(self, text: str) -> str:
+        """Remove HTML tags, decode HTML entities, and normalize Unicode."""
+        # Decode HTML entities (may be double-encoded, so decode twice)
+        decoded = html.unescape(html.unescape(text))
+        # Remove HTML tags
+        stripped = re.sub(r"<[^>]+>", "", decoded)
+        # Clean up any remaining entities
+        cleaned = re.sub(r"&\w+;", "", stripped)  # Remove &nbsp;, &amp;, etc.
+        # Normalize Unicode characters
+        cleaned = self._normalize_unicode(cleaned)
+        # Clean up excessive whitespace
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned
 
     @staticmethod
     def _extract_tags(title: str, description: str) -> list[str]:
         """Extract keyword tags from title and description."""
         keywords = [
+            # Core operations
             "operations",
             "supply chain",
             "logistics",
@@ -128,6 +153,56 @@ class SimpleNormalizer(BaseNormalizer):
             "digital",
             "healthcare",
             "finance",
+            # Semiconductor & electronics
+            "semiconductor",
+            "wafer",
+            "fab",
+            "foundry",
+            "cleanroom",
+            "yield",
+            "silicon",
+            "chip",
+            "asic",
+            "mems",
+            "electronics",
+            # Automotive & quality
+            "automotive",
+            "iatf",
+            "apqp",
+            "ppap",
+            "fmea",
+            "oem",
+            "powertrain",
+            # Executive / operational excellence
+            "operational excellence",
+            "continuous improvement",
+            "lean",
+            "six sigma",
+            "kaizen",
+            "kpi",
+            "restructuring",
+            "turnaround",
+            # Supply chain & industrialization
+            "procurement",
+            "sourcing",
+            "inventory",
+            "warehouse",
+            "distribution",
+            "npi",
+            "industrialization",
+            "ramp-up",
+            "scale-up",
+            "capex",
+            # Scope indicators
+            "global",
+            "multi-site",
+            "international",
+            # Industries
+            "aerospace",
+            "defense",
+            "energy",
+            "chemicals",
+            "medical devices",
         ]
         combined = f"{title} {description}".lower()
         return sorted({kw for kw in keywords if kw.lower() in combined})

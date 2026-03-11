@@ -1,210 +1,251 @@
 # Exec Radar
 
-AI-powered executive opportunity intelligence platform.
+**AI-powered executive opportunity intelligence platform**
 
-## Goal
+Exec Radar continuously scans public job sources for executive and senior operations opportunities, scores them against your profile, and surfaces the most relevant roles through an interactive dashboard and REST API.
 
-Exec Radar continuously scans public sources for executive and senior operations opportunities, normalizes listings into a canonical schema, scores them against a target profile, and surfaces the most relevant roles through an API and dashboard.
+## Features
+
+- 🎯 **Smart Matching** — Scores job postings against your target profile (titles, seniority, locations, skills)
+- 🌐 **Multi-Source** — Fetches from public job boards (Greenhouse, with extensibility for more)
+- 📊 **Interactive Dashboard** — Table and card views, filters, search, favorites, detailed panels
+- 🔄 **Real-Time Updates** — Continuous pipeline to keep opportunities fresh
+- 🔍 **State Tracking** — Automatically marks jobs as new, seen, or updated (based on content changes)
+- 💾 **Persistence** — Optional database storage for historical tracking
+- 🚀 **Simple Deployment** — Docker-ready, single API server with embedded dashboard
+
+## Scoring Engine
+
+Exec Radar scores each posting across **six weighted dimensions**:
+
+| Dimension | Description |
+|-----------|-------------|
+| **Title** | Target / adjacent / excluded title matching with family awareness |
+| **Seniority** | C-level, VP, Director alignment |
+| **Industry** | Target and adjacent industry overlap |
+| **Scope** | Executive scope indicators (multi-site, global, P&L) |
+| **Geography** | Location + remote policy fit |
+| **Keyword Clusters** | Domain cluster overlap across five clusters |
+
+### Keyword Clusters
+
+| Cluster | Focus |
+|---------|-------|
+| `semiconductor_manufacturing` | Wafer, fab, cleanroom, yield, process engineering |
+| `fabless_foundry_osat` | Fabless, foundry, OSAT, contract manufacturing, advanced packaging, supplier quality |
+| `automotive_quality` | IATF 16949, APQP, PPAP, FMEA, OEM |
+| `executive_operations_leadership` | P&L, transformation, lean, six sigma, operational excellence |
+| `supply_chain_industrialization` | Supply chain, NPI, industrialization, ramp-up, S&OP |
+
+### Stricter Scoring Penalties
+
+The ranker applies post-scoring penalties to reduce noise:
+
+- **Software-heavy** — Roles with multiple software/devops/SaaS signals are demoted
+- **GTM / business-only** — Revenue ops, demand gen, sales enablement roles are penalized
+- **Misleading ops titles** — Operations titles without manufacturing/SC/industrial evidence are flagged
+- **Too junior** — Intern, junior, trainee roles receive a hard multiplier
+- **Narrow scope** — Single-site/plant roles are penalized when the profile targets executive/global scope
+
+Each penalty is deterministic and appears in `why_penalized` / `red_flags` for full explainability.
 
 ## Quick Start
 
+### 1. Install
+
 ```bash
-# 1. Clone and install
 git clone https://github.com/r45635/exec-radar.git
 cd exec-radar
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev]"
-
-# 2. Run tests
-pytest
-
-# 3. Start the API + Dashboard
-uvicorn apps.api.main:app --reload
-
-# 4. Try the endpoints
-curl http://localhost:8000/health
-curl http://localhost:8000/jobs
-
-# 5. Open the dashboard
-open http://localhost:8000/dashboard/
+pip install -e .
 ```
 
-### Docker
+### 2. Start with Mock Data
 
 ```bash
-docker build -t exec-radar .
-docker run -p 8000:8000 exec-radar
+uvicorn apps.api.main:app --reload
 ```
 
-## Stack
+Then open **[http://localhost:8000/dashboard/](http://localhost:8000/dashboard/)** in your browser.
 
-| Concern   | Choice              |
-|-----------|---------------------|
-| Language  | Python 3.12+        |
-| API       | FastAPI             |
-| Dashboard | Jinja2 templates    |
-| Schemas   | Pydantic v2         |
-| Linting   | Ruff                |
-| Testing   | pytest + pytest-asyncio |
-| GUI Tests | Playwright          |
-| Container | Docker              |
+### 3. Configure Your Target Profile
 
-## Repository Structure
-
-```
-exec-radar/
-├── apps/
-│   ├── api/            # FastAPI service (GET /health, GET /jobs)
-│   ├── worker/         # Background pipeline runner
-│   └── dashboard/      # Jinja2 dashboard (mounted at /dashboard)
-│       ├── app.py      # FastAPI sub-app
-│       ├── templates/  # base.html, index.html
-│       └── static/     # style.css
-├── packages/
-│   ├── schemas/        # RawJobPosting, NormalizedJobPosting, FitScore, TargetProfile
-│   ├── db/             # SQLAlchemy ORM models, engine, repository
-│   ├── collectors/     # BaseCollector → MockCollector, GreenhouseCollector
-│   ├── normalizers/    # BaseNormalizer → SimpleNormalizer
-│   ├── rankers/        # BaseRanker → RuleBasedRanker
-│   └── notifications/  # BaseNotifier (stub)
-├── examples/           # Sample target profiles
-├── tests/              # Unit + E2E tests (Playwright)
-├── docs/               # Architecture and roadmap
-├── pyproject.toml      # Build config, Ruff, pytest
-├── Dockerfile          # API container image
-└── .env.example        # Environment variable template
-```
-
-## Pipeline
-
-```
-Collectors  →  Normalizers  →  Rankers  →  API / Notifications
-(raw data)     (canonical)     (scored)    (serve / alert)
-```
-
-## Target Profile
-
-The ranking engine scores every posting against a configurable **`TargetProfile`** instead of hardcoded assumptions.  Customize it to describe the role you are pursuing:
+Edit `examples/sample_profile.yaml` to define your ideal role:
 
 ```yaml
-# examples/sample_profile.yaml (excerpt)
 target_titles:
   - chief operating officer
   - vp of operations
 
 target_seniority: [c_level, svp, vp]
+target_locations: [New York, London, Remote]
+required_keywords: [operations, supply chain, strategy]
 
-target_locations:
-  - New York
-  - London
-
-preferred_companies:
-  - Acme Corp
-
-required_keywords:
-  - operations
-  - supply chain
-  - strategy
-
+# Scoring weights
 weight_title: 0.35
 weight_seniority: 0.25
 weight_location: 0.15
 weight_skills: 0.25
 ```
 
-All fields have sensible defaults — `TargetProfile()` works out of the box.
-Load a custom profile from YAML with `load_profile("path/to/profile.yaml")`.
-See [examples/sample_profile.yaml](examples/sample_profile.yaml) for the full template.
+### 4. Use Real Job Sources
 
-## Design Principles
-
-- Separate raw ingestion, normalization, and ranking layers
-- Schema-first — every handoff is a validated Pydantic model
-- Extensible — add a new collector/normalizer/ranker by implementing one ABC
-- No hardcoded secrets — env vars via `pydantic-settings`
-- Fully typed, docstrings on all public surfaces
-
-## Documentation
-
-- [Architecture](docs/architecture.md)
-- [Roadmap](docs/roadmap.md)
-
-## Collectors
-
-### Mock (default)
-
-Returns five hard-coded sample executive postings. No configuration needed.
-
-### Greenhouse
-
-Fetches real job listings from any company that uses the [Greenhouse ATS](https://developers.greenhouse.io/job-board.html) via its public Boards API. No authentication required.
+Switch to the **Greenhouse Boards API** (covers 1000+ companies with public careers pages):
 
 ```bash
-# Set env vars and run the worker
+# Default: scans 6 semiconductor companies (Lattice, Tenstorrent, Graphcore, Lightmatter, SambaNova, Cerebras)
 export EXEC_RADAR_COLLECTOR=greenhouse
-export EXEC_RADAR_GREENHOUSE_BOARD=discord   # any valid board token
+uvicorn apps.api.main:app --reload
+
+# Or target specific companies (comma-separated board tokens)
+export EXEC_RADAR_COLLECTOR=greenhouse
+export EXEC_RADAR_GREENHOUSE_BOARDS=lattice,tenstorrent,cerebrassystems
+uvicorn apps.api.main:app --reload
+
+# Or a single board
+export EXEC_RADAR_COLLECTOR=greenhouse
+export EXEC_RADAR_GREENHOUSE_BOARD=discord
+uvicorn apps.api.main:app --reload
+```
+
+The dashboard will now show real opportunities scored against your active profile.
+
+## Usage
+
+### Dashboard
+
+Access at `/dashboard` with:
+- **Search** — Find roles by title, company, location
+- **Filters** — By seniority, remote policy, status (active/favorites/dismissed)
+- **Toggle Views** — Table for detailed comparison, cards for browsing
+- **Pagination** — Efficient viewing of large lists
+- **Detail Panel** — Click any job to see full description and scoring breakdown
+- **Preferences** — Mark jobs as favorites or dismissed (persists locally)
+
+### API Endpoints
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# List scored jobs
+curl http://localhost:8000/jobs | jq '.jobs[0:5]'
+
+# Dashboard preferences (local to browser)
+curl http://localhost:8000/dashboard/preferences?user_id=default
+```
+
+### Command Line: Run Pipeline Once
+
+```bash
 python -m apps.worker.main
 ```
 
-With persistence:
+Fetches jobs, scores them, and logs results. Add persistence:
 
 ```bash
-export EXEC_RADAR_COLLECTOR=greenhouse
-export EXEC_RADAR_GREENHOUSE_BOARD=discord
-export EXEC_RADAR_DATABASE_URL=postgresql+asyncpg://localhost:5432/exec_radar
+export EXEC_RADAR_DATABASE_URL=postgresql+asyncpg://user:pass@localhost/exec_radar
 alembic upgrade head
 python -m apps.worker.main
 ```
 
-Greenhouse board tokens to try: `discord`, `cloudflare`, `figma`, `notion`, `stripe`.
+## Deployment
 
-## Dashboard
-
-The dashboard is a server-rendered Jinja2 UI mounted at `/dashboard` on the main FastAPI app. It displays:
-
-- **Health status** — green/red indicator from the backend
-- **Jobs table** — ranked opportunities with title, company, location, remote policy, seniority, fit score, and source
-- **Empty / error states** — handled gracefully
+### Docker
 
 ```bash
-# Start the server (API + Dashboard)
-uvicorn apps.api.main:app --reload
-
-# Open the dashboard
-open http://localhost:8000/dashboard/
+docker build -t exec-radar .
+docker run -p 8000:8000 \
+  -e EXEC_RADAR_COLLECTOR=greenhouse \
+  -e EXEC_RADAR_GREENHOUSE_BOARD=stripe \
+  exec-radar
 ```
 
-### Dashboard structure
+### Environment Variables
 
-```
-apps/dashboard/
-├── app.py               # FastAPI sub-app (Jinja2 + static files)
-├── templates/
-│   ├── base.html        # Layout: nav bar, version, CSS link
-│   └── index.html       # Dashboard: health badge + jobs table
-└── static/
-    └── style.css        # Minimal responsive CSS
-```
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `EXEC_RADAR_COLLECTOR` | `mock` | `mock` (sample data) or `greenhouse` |
+| `EXEC_RADAR_GREENHOUSE_BOARDS` | *(6 semi boards)* | Comma-separated Greenhouse board tokens |
+| `EXEC_RADAR_GREENHOUSE_BOARD` | — | Single Greenhouse board token (fallback) |
+| `EXEC_RADAR_TARGET_PROFILE` | — | Path to YAML profile file |
+| `EXEC_RADAR_DATABASE_URL` | — | PostgreSQL or MySQL URL for persistence |
+| `LOG_LEVEL` | `INFO` | Logging verbosity |
 
-### GUI tests
+### Database Setup (Optional)
 
-End-to-end tests use Playwright (Chromium) against a real test server.
-They run in a separate session to avoid event-loop conflicts with pytest-asyncio:
+For persistent job storage:
 
 ```bash
-# Install Playwright browsers (one-time)
-python -m playwright install chromium
-
-# Run unit tests (default — e2e excluded)
-pytest -v
-
-# Run GUI / e2e tests
-pytest tests/e2e/ -v
-
-# Run everything
-pytest -v && pytest tests/e2e/ -v
+export EXEC_RADAR_DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/exec_radar
+alembic upgrade head
+python -m apps.worker.main
 ```
+
+Supported databases: PostgreSQL (recommended), MySQL, SQLite (development only).
+
+## Job Sources
+
+### Mock Collector (Built-in)
+
+Five sample executive postings. Perfect for testing and demos. No configuration needed.
+
+```bash
+export EXEC_RADAR_COLLECTOR=mock  # Default
+```
+
+### Greenhouse
+
+Public job listings from 1000+ companies using Greenhouse ATS. No API keys required.
+
+```bash
+export EXEC_RADAR_COLLECTOR=greenhouse
+# Defaults to 6 semiconductor boards if no boards specified
+```
+
+**Built-in semiconductor boards:**
+
+| Token | Company | ~Jobs |
+|-------|---------|-------|
+| `lattice` | Lattice Semiconductor | 18 |
+| `tenstorrent` | Tenstorrent | 109 |
+| `graphcore` | Graphcore | 128 |
+| `lightmatter` | Lightmatter | 56 |
+| `sambanovasystems` | SambaNova Systems | 13 |
+| `cerebrassystems` | Cerebras Systems | 92 |
+
+Multiple boards are fetched in parallel via the `CompositeCollector`.
+
+Other popular board tokens: `discord`, `cloudflare`, `figma`, `notion`, `stripe`, `remote`.
+
+**Coming soon:** LinkedIn, Indeed, custom RSS feeds, email alerts.
+
+## FAQ
+
+**Q: Does this scrape websites?**
+A: No. It uses public APIs (Greenhouse) where available. No browser automation or scraping.
+
+**Q: Is my profile private?**
+A: Yes. When run locally, everything stays on your machine. Optional database is your own infrastructure.
+
+**Q: What are "new", "seen", and "updated" jobs?**
+A: Exec Radar tracks job state:
+- **new** — First time this job appears (never seen before)
+- **seen** — Job seen before with unchanged content (same title, description, salary, tags)
+- **updated** — Job seen before but content changed (title, description, salary, or tags differ)
+
+Use the API to filter: `curl http://localhost:8000/jobs | jq '.jobs[] | select(.job_state == "new")'`
+
+**Q: Can I add custom job sources?**
+A: Yes. See [DEVELOPMENT.md](DEVELOPMENT.md#adding-a-collector) to build a new collector.
+
+**Q: How often are jobs updated?**
+A: In current version, manually on-demand via `apps.worker.main`. Scheduled polling coming soon.
 
 ## License
 
 MIT
+
+---
+
+**For developers:** See [DEVELOPMENT.md](DEVELOPMENT.md) for setup, testing, architecture, and extending Exec Radar.

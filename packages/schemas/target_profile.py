@@ -37,8 +37,39 @@ class TargetProfile(BaseModel):
         ),
         description="Desired job titles (case-insensitive match).",
     )
+    adjacent_titles: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "vp manufacturing",
+                "vice president manufacturing",
+                "svp manufacturing",
+                "head of manufacturing",
+                "director of manufacturing",
+                "vp supply chain",
+                "head of supply chain",
+                "vp industrial operations",
+                "head of industrial operations",
+                "plant director",
+                "general manager operations",
+                "vp operational excellence",
+                "head of operational excellence",
+            }
+        ),
+        description=(
+            "Related titles that are not the primary target but still "
+            "interesting (partial title score)."
+        ),
+    )
     excluded_titles: frozenset[str] = Field(
-        default=frozenset(),
+        default=frozenset(
+            {
+                "intern",
+                "junior",
+                "entry level",
+                "associate",
+                "assistant",
+            }
+        ),
         description="Titles to penalize or exclude outright.",
     )
 
@@ -77,11 +108,52 @@ class TargetProfile(BaseModel):
         default=frozenset(),
         description="Preferred geographic locations (case-insensitive substring match).",
     )
+    target_geographies: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "france",
+                "germany",
+                "switzerland",
+                "europe",
+                "united states",
+                "usa",
+            }
+        ),
+        description=(
+            "Broader geographic regions or countries "
+            "(matched against location text)."
+        ),
+    )
 
     # ── Industry preferences ──────────────────────────────────────
     target_industries: frozenset[str] = Field(
-        default=frozenset(),
-        description="Target industries — matched against job tags as a bonus.",
+        default=frozenset(
+            {
+                "semiconductor",
+                "electronics",
+                "automotive",
+                "industrial manufacturing",
+                "advanced manufacturing",
+                "aerospace",
+            }
+        ),
+        description="Target industries — matched against tags and description.",
+    )
+    adjacent_industries: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "energy",
+                "chemicals",
+                "defense",
+                "medical devices",
+                "heavy industry",
+                "logistics",
+            }
+        ),
+        description=(
+            "Related industries that are not primary targets "
+            "but still relevant (partial score)."
+        ),
     )
 
     # ── Company preferences ───────────────────────────────────────
@@ -94,7 +166,85 @@ class TargetProfile(BaseModel):
         description="Companies to penalize when matched (case-insensitive).",
     )
 
-    # ── Skills / keywords ─────────────────────────────────────────
+    # ── Keywords (tiered) ─────────────────────────────────────────
+    must_have_keywords: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "operations",
+                "manufacturing",
+                "industrial",
+            }
+        ),
+        description=(
+            "Deal-breaker keywords — a posting missing ALL of these "
+            "is heavily penalized."
+        ),
+    )
+    strong_keywords: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "supply chain",
+                "P&L",
+                "transformation",
+                "continuous improvement",
+                "lean",
+                "six sigma",
+                "operational excellence",
+                "quality",
+                "production",
+                "plant",
+            }
+        ),
+        description="High-value keywords (significant score contribution).",
+    )
+    nice_to_have_keywords: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "change management",
+                "strategy",
+                "digital transformation",
+                "ERP",
+                "SAP",
+                "capex",
+                "scalability",
+                "KPI",
+                "OKR",
+            }
+        ),
+        description="Bonus keywords (small uplift).",
+    )
+    excluded_keywords: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "entry level",
+                "unpaid",
+                "internship",
+            }
+        ),
+        description="Keywords that signal an irrelevant posting.",
+    )
+
+    # ── Scope keywords ────────────────────────────────────────────
+    preferred_scope_keywords: frozenset[str] = Field(
+        default=frozenset(
+            {
+                "global",
+                "multi-site",
+                "regional",
+                "international",
+                "p&l responsibility",
+                "budget",
+                "headcount",
+                "direct reports",
+            }
+        ),
+        description=(
+            "Scope indicators (multi-site, global, P&L size) "
+            "that boost the scope dimension."
+        ),
+    )
+
+    # ── Legacy aliases (backward compat) ──────────────────────────
     required_keywords: frozenset[str] = Field(
         default=frozenset(
             {
@@ -114,19 +264,39 @@ class TargetProfile(BaseModel):
         default=frozenset(),
         description="Nice-to-have keywords (bonus, not required).",
     )
-    excluded_keywords: frozenset[str] = Field(
-        default=frozenset(),
-        description="Keywords that signal an irrelevant posting.",
+
+    # ── Scoring weights (6 dimensions) ────────────────────────────
+    weight_title: float = Field(
+        default=0.25, ge=0.0, le=1.0,
+        description="Title dimension weight",
+    )
+    weight_seniority: float = Field(
+        default=0.15, ge=0.0, le=1.0,
+        description="Seniority dimension weight",
+    )
+    weight_industry: float = Field(
+        default=0.15, ge=0.0, le=1.0,
+        description="Industry dimension weight",
+    )
+    weight_scope: float = Field(
+        default=0.10, ge=0.0, le=1.0,
+        description="Scope dimension weight",
+    )
+    weight_geography: float = Field(
+        default=0.10, ge=0.0, le=1.0,
+        description="Geography / location dimension weight",
+    )
+    weight_keyword_clusters: float = Field(
+        default=0.25, ge=0.0, le=1.0,
+        description="Keyword-cluster dimension weight",
     )
 
-    # ── Scoring weights ───────────────────────────────────────────
-    weight_title: float = Field(default=0.35, ge=0.0, le=1.0, description="Title dimension weight")
-    weight_seniority: float = Field(
-        default=0.25, ge=0.0, le=1.0, description="Seniority dimension weight"
-    )
+    # Legacy weight aliases — kept so old YAML files don't break
     weight_location: float = Field(
-        default=0.15, ge=0.0, le=1.0, description="Location dimension weight"
+        default=0.15, ge=0.0, le=1.0,
+        description="(legacy) Location dimension weight",
     )
     weight_skills: float = Field(
-        default=0.25, ge=0.0, le=1.0, description="Skills dimension weight"
+        default=0.25, ge=0.0, le=1.0,
+        description="(legacy) Skills dimension weight",
     )

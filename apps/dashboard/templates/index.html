@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard – Exec Radar{% endblock %}
+{% block title %}Dashboard - Exec Radar{% endblock %}
 
 {% block content %}
 
@@ -17,11 +17,59 @@
     {% endif %}
 </div>
 
+{# ── Toolbar: search + filters + view toggle ───────────────── #}
+<div class="toolbar" data-testid="toolbar">
+    <div class="toolbar-left">
+        <div class="search-box">
+            <svg class="search-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-input" placeholder="Search titles, companies, locations..." data-testid="search-input" />
+        </div>
+    </div>
+    <div class="toolbar-right">
+        <select id="filter-seniority" data-testid="filter-seniority" title="Filter by seniority">
+            <option value="">All seniority</option>
+            <option value="c_level">C-Level</option>
+            <option value="vp">VP</option>
+            <option value="svp">SVP</option>
+            <option value="director">Director</option>
+            <option value="head">Head</option>
+            <option value="other">Other</option>
+        </select>
+        <select id="filter-remote" data-testid="filter-remote" title="Filter by remote policy">
+            <option value="">All remote</option>
+            <option value="remote">Remote</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="onsite">Onsite</option>
+            <option value="unknown">Unknown</option>
+        </select>
+        <select id="filter-status" data-testid="filter-status" title="Filter by status">
+            <option value="active">Active</option>
+            <option value="favorites">Favorites</option>
+            <option value="dismissed">Dismissed</option>
+            <option value="all">All</option>
+        </select>
+        <div class="view-toggle" role="group" aria-label="View mode">
+            <button id="view-table" class="btn btn-view active" data-testid="view-table" type="button">Table</button>
+            <button id="view-cards" class="btn btn-view" data-testid="view-cards" type="button">Cards</button>
+        </div>
+        <select id="page-size" data-testid="page-size" title="Rows per page">
+            <option value="10">10 / page</option>
+            <option value="25" selected>25 / page</option>
+            <option value="50">50 / page</option>
+            <option value="100">100 / page</option>
+        </select>
+        <a href="/dashboard/" class="btn btn-refresh" data-testid="btn-refresh" title="Refresh data">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+        </a>
+    </div>
+</div>
+
 {# ── Jobs card ─────────────────────────────────────────────── #}
 <div class="card" data-testid="jobs-card">
     <div class="card-header">
-        <h2>Ranked Opportunities ({{ job_count }})</h2>
-        <a href="/dashboard/" class="btn">&#x21bb; Refresh</a>
+        <h2>Ranked Opportunities <span class="count-badge" data-testid="job-count">({{ job_count }})</span></h2>
+        <span class="visible-count" data-testid="visible-count"></span>
     </div>
     <div class="card-body">
         {% if jobs_error %}
@@ -36,35 +84,72 @@
             <p>Run the pipeline or check your collector configuration.</p>
         </div>
         {% else %}
+        <div class="table-wrapper" id="table-view">
         <table class="jobs-table" data-testid="jobs-table">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>Title</th>
-                    <th>Company</th>
-                    <th>Location</th>
-                    <th>Remote</th>
-                    <th>Seniority</th>
-                    <th>Score</th>
-                    <th>Source</th>
+                    <th class="col-actions" title="Actions">&#x2605;</th>
+                    <th class="col-score sortable" data-sort="score" title="Sort by score">Score</th>
+                    <th class="col-title sortable" data-sort="title" title="Sort by title">Title</th>
+                    <th class="col-company sortable" data-sort="company" title="Sort by company">Company</th>
+                    <th class="col-location">Location</th>
+                    <th class="col-remote">Remote</th>
+                    <th class="col-seniority">Seniority</th>
+                    <th class="col-date sortable" data-sort="date" title="Sort by date">Date</th>
+                    <th class="col-source">Source</th>
                 </tr>
             </thead>
             <tbody>
                 {% for sj in jobs %}
-                <tr data-testid="job-row">
-                    <td>{{ loop.index }}</td>
-                    <td>
-                        {% if sj.job.source_url %}
-                        <a class="job-link" href="{{ sj.job.source_url }}" target="_blank" rel="noopener">
-                            {{ sj.job.title }}
-                        </a>
-                        {% else %}
-                        {{ sj.job.title }}
-                        {% endif %}
+                <tr class="job-row"
+                    data-testid="job-row"
+                    data-job-id="{{ sj.job.id }}"
+                    data-title="{{ sj.job.title }}"
+                    data-company="{{ sj.job.company or '' }}"
+                    data-location="{{ sj.job.location or '' }}"
+                    data-remote="{{ sj.job.remote_policy.value }}"
+                    data-seniority="{{ sj.job.seniority.value }}"
+                    data-score="{{ sj.score.overall }}"
+                    data-source="{{ sj.job.source }}"
+                    data-source-url="{{ sj.job.source_url or '' }}"
+                    data-posted-at="{{ sj.job.posted_at.isoformat() if sj.job.posted_at else '' }}"
+                    data-description="{{ sj.job.description_plain | e }}"
+                    data-tags="{{ sj.job.tags | join(',') }}"
+                    data-salary-min="{{ sj.job.salary_min or '' }}"
+                    data-salary-max="{{ sj.job.salary_max or '' }}"
+                    data-salary-currency="{{ sj.job.salary_currency or '' }}"
+                    data-score-title="{{ sj.score.title_match }}"
+                    data-score-seniority="{{ sj.score.seniority_match }}"
+                    data-score-location="{{ sj.score.location_match }}"
+                    data-score-skills="{{ sj.score.skills_match }}"
+                    data-explanation="{{ sj.score.explanation | e }}"
+                >
+                    {# Actions #}
+                    <td class="col-actions">
+                        <button class="btn-icon btn-fav" title="Toggle favorite" data-testid="btn-fav">
+                            <svg class="icon-star" viewBox="0 0 24 24" width="16" height="16"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                        </button>
+                        <button class="btn-icon btn-dismiss" title="Dismiss" data-testid="btn-dismiss">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                     </td>
-                    <td>{{ sj.job.company or "—" }}</td>
-                    <td>{{ sj.job.location or "—" }}</td>
-                    <td>
+                    {# Score #}
+                    <td class="col-score">
+                        <span class="score-bar">
+                            <span class="bar"><span class="fill" style="width: {{ (sj.score.overall * 100) | int }}%"></span></span>
+                            <span class="score-value">{{ "%.0f" | format(sj.score.overall * 100) }}%</span>
+                        </span>
+                    </td>
+                    {# Title #}
+                    <td class="col-title">
+                        <button class="job-title-btn" data-testid="job-title-btn">{{ sj.job.title }}</button>
+                    </td>
+                    {# Company #}
+                    <td class="col-company">{{ sj.job.company or "—" }}</td>
+                    {# Location #}
+                    <td class="col-location">{{ sj.job.location or "—" }}</td>
+                    {# Remote #}
+                    <td class="col-remote">
                         {% if sj.job.remote_policy.value == "remote" %}
                         <span class="badge badge-remote">remote</span>
                         {% elif sj.job.remote_policy.value == "hybrid" %}
@@ -75,26 +160,108 @@
                         <span class="badge badge-unknown">—</span>
                         {% endif %}
                     </td>
-                    <td>
+                    {# Seniority #}
+                    <td class="col-seniority">
                         {% if sj.job.seniority.value != "other" %}
                         <span class="badge badge-seniority">{{ sj.job.seniority.value | replace("_", " ") }}</span>
                         {% else %}
                         <span class="badge badge-unknown">—</span>
                         {% endif %}
                     </td>
-                    <td>
-                        <span class="score-bar">
-                            <span class="bar"><span class="fill" style="width: {{ (sj.score.overall * 100) | int }}%"></span></span>
-                            <span class="score-value">{{ "%.0f" | format(sj.score.overall * 100) }}%</span>
-                        </span>
+                    {# Date #}
+                    <td class="col-date">
+                        {% if sj.job.posted_at %}
+                        <time datetime="{{ sj.job.posted_at.isoformat() }}">{{ sj.job.posted_at.strftime('%b %d, %Y') }}</time>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
                     </td>
-                    <td>{{ sj.job.source }}</td>
+                    {# Source #}
+                    <td class="col-source">
+                        {% if sj.job.source_url %}
+                        <a class="source-link" href="{{ sj.job.source_url }}" target="_blank" rel="noopener" title="View original posting">{{ sj.job.source }}</a>
+                        {% else %}
+                        {{ sj.job.source }}
+                        {% endif %}
+                    </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
+        </div>
+        <div id="cards-view" class="cards-view" data-testid="cards-view" hidden>
+            <div id="cards-viewport" class="cards-viewport">
+                <div id="cards-spacer-top"></div>
+                <div id="cards-list" class="cards-list"></div>
+                <div id="cards-spacer-bottom"></div>
+            </div>
+        </div>
+        <div class="pagination" id="pagination" data-testid="pagination">
+            <button id="page-prev" class="btn" type="button" data-testid="page-prev">Prev</button>
+            <span id="page-info" class="page-info" data-testid="page-info">Page 1 / 1</span>
+            <button id="page-next" class="btn" type="button" data-testid="page-next">Next</button>
+        </div>
         {% endif %}
     </div>
 </div>
 
+{# ── Detail slide-out panel ──────────────────────────────── #}
+<div id="detail-panel" class="detail-panel" data-testid="detail-panel">
+    <div class="detail-header">
+        <h2 id="detail-title" data-testid="detail-title"></h2>
+        <button id="detail-close" class="btn-icon" data-testid="detail-close" title="Close">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+    </div>
+    <div class="detail-body">
+        <div class="detail-meta" data-testid="detail-meta">
+            <div class="meta-item"><span class="meta-label">Company</span><span id="detail-company"></span></div>
+            <div class="meta-item"><span class="meta-label">Location</span><span id="detail-location"></span></div>
+            <div class="meta-item"><span class="meta-label">Remote</span><span id="detail-remote"></span></div>
+            <div class="meta-item"><span class="meta-label">Seniority</span><span id="detail-seniority"></span></div>
+            <div class="meta-item"><span class="meta-label">Posted</span><span id="detail-date"></span></div>
+            <div class="meta-item"><span class="meta-label">Source</span><span id="detail-source"></span></div>
+            <div class="meta-item" id="detail-salary-row" style="display:none"><span class="meta-label">Salary</span><span id="detail-salary"></span></div>
+        </div>
+
+        <div class="detail-section">
+            <h3>Fit Score</h3>
+            <div class="score-breakdown" data-testid="score-breakdown">
+                <div class="score-overall">
+                    <div class="score-ring" id="detail-score-ring"><span id="detail-score-pct"></span></div>
+                </div>
+                <div class="score-dimensions">
+                    <div class="dim-row"><span class="dim-label">Title</span><div class="dim-bar"><div class="dim-fill" id="dim-title"></div></div></div>
+                    <div class="dim-row"><span class="dim-label">Seniority</span><div class="dim-bar"><div class="dim-fill" id="dim-seniority"></div></div></div>
+                    <div class="dim-row"><span class="dim-label">Location</span><div class="dim-bar"><div class="dim-fill" id="dim-location"></div></div></div>
+                    <div class="dim-row"><span class="dim-label">Skills</span><div class="dim-bar"><div class="dim-fill" id="dim-skills"></div></div></div>
+                </div>
+            </div>
+            <p class="score-explanation" id="detail-explanation"></p>
+        </div>
+
+        <div class="detail-section" id="detail-tags-section" style="display:none">
+            <h3>Tags</h3>
+            <div class="tags-list" id="detail-tags"></div>
+        </div>
+
+        <div class="detail-section" id="detail-desc-section">
+            <h3>Description</h3>
+            <div class="description-text" id="detail-description" data-testid="detail-description"></div>
+        </div>
+
+        <div class="detail-actions">
+            <a id="detail-link" class="btn btn-primary" href="#" target="_blank" rel="noopener" style="display:none">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                View Original
+            </a>
+        </div>
+    </div>
+</div>
+<div id="detail-overlay" class="detail-overlay"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="/dashboard/static/app.js"></script>
 {% endblock %}

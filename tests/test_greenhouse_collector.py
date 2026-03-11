@@ -248,3 +248,28 @@ class TestGreenhouseCollectorEdgeCases:
 
         assert len(requests_made) == 1
         assert "content=true" not in str(requests_made[0].url)
+
+
+class TestGreenhouseCompanyName:
+    """Tests for company name resolution."""
+
+    async def test_default_company_from_token(self) -> None:
+        """Company name should default to title-cased board token."""
+        client = _make_client(_GREENHOUSE_RESPONSE)
+        collector = GreenhouseCollector(board_token="acme", http_client=client)
+        results = await collector.collect()
+        assert all(r.company == "Acme" for r in results)
+
+    async def test_explicit_company_name(self) -> None:
+        """Explicit company_name should override the default."""
+        client = _make_client(_GREENHOUSE_RESPONSE)
+        collector = GreenhouseCollector(
+            board_token="acme", company_name="Acme Corp", http_client=client,
+        )
+        results = await collector.collect()
+        assert all(r.company == "Acme Corp" for r in results)
+
+    async def test_compound_token_titlecased(self) -> None:
+        """Underscore-separated token should be title-cased with spaces."""
+        collector = GreenhouseCollector(board_token="cerebras_systems")
+        assert collector._company_name == "Cerebras Systems"

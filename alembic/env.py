@@ -15,6 +15,7 @@ from packages.db.base import Base
 from packages.db.models import (  # noqa: F401
     FitScoreRecord,
     NormalizedJobPostingRecord,
+    ProfileRecord,
     RawJobPostingRecord,
     SourceRunRecord,
 )

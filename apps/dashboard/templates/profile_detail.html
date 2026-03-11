@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}{{ profile.name }} - Exec Radar{% endblock %}
+
+{% block content %}
+<div class="profiles-header">
+    <h2>{{ profile.name }}</h2>
+    <div class="profiles-actions">
+        <a href="/dashboard/profiles/{{ profile.id }}/edit" class="btn btn-primary">Edit</a>
+        <a href="/dashboard/profiles/{{ profile.id }}/export" class="btn btn-secondary">Export YAML</a>
+        <a href="/dashboard/profiles" class="btn btn-secondary">&larr; Back</a>
+    </div>
+</div>
+
+<div class="profile-detail-meta">
+    <span class="status-badge status-{{ profile.status }}">{{ profile.status }}</span>
+    <span class="source-badge">{{ profile.source_type }}</span>
+    <span class="date-info">Created: {{ profile.created_at }}</span>
+    <span class="date-info">Updated: {{ profile.updated_at }}</span>
+</div>
+
+{% if profile.description %}
+<p class="profile-detail-desc">{{ profile.description }}</p>
+{% endif %}
+
+<div class="profile-detail-sections">
+    {% macro render_list(title, items) %}
+    {% if items %}
+    <div class="detail-section">
+        <h3>{{ title }}</h3>
+        <ul class="tag-list">
+            {% for item in items %}
+            <li class="tag">{{ item }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+    {% endmacro %}
+
+    {{ render_list("Target Titles", profile.data.get('target_titles', [])) }}
+    {{ render_list("Adjacent Titles", profile.data.get('adjacent_titles', [])) }}
+    {{ render_list("Excluded Titles", profile.data.get('excluded_titles', [])) }}
+    {{ render_list("Target Industries", profile.data.get('target_industries', [])) }}
+    {{ render_list("Adjacent Industries", profile.data.get('adjacent_industries', [])) }}
+    {{ render_list("Must-Have Keywords", profile.data.get('must_have_keywords', [])) }}
+    {{ render_list("Strong Keywords", profile.data.get('strong_keywords', [])) }}
+    {{ render_list("Nice-to-Have Keywords", profile.data.get('nice_to_have_keywords', [])) }}
+    {{ render_list("Excluded Keywords", profile.data.get('excluded_keywords', [])) }}
+    {{ render_list("Scope Keywords", profile.data.get('preferred_scope_keywords', [])) }}
+    {{ render_list("Target Geographies", profile.data.get('target_geographies', [])) }}
+
+    <div class="detail-section">
+        <h3>Scoring Weights</h3>
+        <table class="weights-table">
+            <tr><th>Dimension</th><th>Weight</th></tr>
+            <tr><td>Title</td><td>{{ profile.data.get('weight_title', 0.25) }}</td></tr>
+            <tr><td>Seniority</td><td>{{ profile.data.get('weight_seniority', 0.15) }}</td></tr>
+            <tr><td>Industry</td><td>{{ profile.data.get('weight_industry', 0.15) }}</td></tr>
+            <tr><td>Scope</td><td>{{ profile.data.get('weight_scope', 0.10) }}</td></tr>
+            <tr><td>Geography</td><td>{{ profile.data.get('weight_geography', 0.10) }}</td></tr>
+            <tr><td>Keyword Clusters</td><td>{{ profile.data.get('weight_keyword_clusters', 0.25) }}</td></tr>
+        </table>
+    </div>
+</div>
+
+<div class="form-actions" style="margin-top: 2rem;">
+    {% if not profile.is_active and not profile.is_suspended %}
+    <form method="post" action="/dashboard/profiles/{{ profile.id }}/activate" class="inline-form">
+        <button type="submit" class="btn btn-success">Activate This Profile</button>
+    </form>
+    {% endif %}
+    {% if not profile.is_suspended %}
+    <form method="post" action="/dashboard/profiles/{{ profile.id }}/suspend" class="inline-form">
+        <button type="submit" class="btn btn-warning">Suspend</button>
+    </form>
+    {% endif %}
+    {% if profile.is_suspended %}
+    <form method="post" action="/dashboard/profiles/{{ profile.id }}/unsuspend" class="inline-form">
+        <button type="submit" class="btn btn-primary">Unsuspend</button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

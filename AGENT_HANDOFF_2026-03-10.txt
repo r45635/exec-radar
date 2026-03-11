@@ -1,0 +1,80 @@
+Exec Radar - Agent Handoff Context
+Date: 2026-03-10
+Branch: main
+Base commit: 56f238c
+
+OBJECTIF REALISE
+- Refonte majeure du dashboard UI.
+- Ajout d'une vue table + vue cards.
+- Ajout filtres/recherche/tri.
+- Ajout panneau detail offre.
+- Ajout favoris + dismissed.
+- Ajout persistance backend des preferences (SQLite local serveur) via API dashboard.
+- Ajout pagination table + virtual scroll en vue cards.
+- Mise a jour des tests e2e.
+
+FICHIERS MODIFIES (non commit)
+- apps/dashboard/app.py
+- apps/dashboard/static/style.css
+- apps/dashboard/templates/base.html
+- apps/dashboard/templates/index.html
+- tests/e2e/conftest.py
+- tests/e2e/test_gui.py
+
+NOUVEAUX FICHIERS (non suivis)
+- apps/dashboard/preferences_store.py
+- apps/dashboard/static/app.js
+- .data/ (runtime; genere des fichiers locaux de preferences)
+
+DETAILS TECHNIQUES IMPORTANTS
+1) Preferences backend
+- Nouveau store: apps/dashboard/preferences_store.py
+- DB SQLite par defaut: .data/dashboard_preferences.sqlite3
+- Variable d'env supportee:
+  EXEC_RADAR_DASHBOARD_PREFS_DB=/path/to/db.sqlite3
+- Endpoints ajoutes dans apps/dashboard/app.py:
+  - GET /dashboard/preferences?user_id=default
+  - POST /dashboard/preferences/toggle
+    payload JSON: {"user_id":"default","job_id":"...","action":"favorite|dismissed"}
+
+2) Frontend
+- Script principal: apps/dashboard/static/app.js
+- Fonctions: sync preferences backend, filtres, tri, pagination table, vue cards virtualisee, panneau detail.
+- Templates + CSS adaptes pour:
+  - toggle table/cards
+  - controles pagination
+  - cards viewport virtualise
+
+3) Stabilite tests e2e
+- tests/e2e/conftest.py force une DB preferences temporaire isolee (tempdir) pour eviter les effets de bord entre runs.
+
+VALIDATION EFFECTUEE (dernier etat valide)
+- Lint: .venv/bin/ruff check . -> OK
+- Unit tests: .venv/bin/python -m pytest -q -> 129 passed
+- E2E tests: .venv/bin/python -m pytest tests/e2e/ -q -> 38 passed
+
+NOTE SUR LES RUNS INTERROMPUS
+- Certaines sorties precedentes montrent des echecs car un run pytest a ete interrompu (Ctrl+C) en cours.
+- Le dernier run propre et complet est GREEN (129 unit + 38 e2e).
+
+POUR REPRENDRE RAPIDEMENT
+1) Activer venv
+- source .venv/bin/activate
+
+2) Lancer serveur
+- lsof -ti:8000 | xargs -r kill -9
+- .venv/bin/python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8000
+- Ouvrir http://127.0.0.1:8000/dashboard/
+
+3) Revalider tests
+- .venv/bin/ruff check .
+- .venv/bin/python -m pytest -q
+- .venv/bin/python -m pytest tests/e2e/ -q
+
+4) Commit suggere
+- git add apps/dashboard/app.py apps/dashboard/preferences_store.py apps/dashboard/static/app.js apps/dashboard/static/style.css apps/dashboard/templates/base.html apps/dashboard/templates/index.html tests/e2e/conftest.py tests/e2e/test_gui.py
+- git commit -m "feat(dashboard): cards view, pagination, backend preferences, and e2e coverage"
+
+POINTS D'ATTENTION
+- .data/ est du runtime local; a ignorer dans le commit si non desire.
+- Si besoin multi-utilisateur reel, remplacer user_id fixe "default" par un vrai identifiant utilisateur/session.

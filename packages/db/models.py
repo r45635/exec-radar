@@ -11,6 +11,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -22,6 +23,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from packages.db.base import Base, TimestampMixin
+
+# Job state enum values
+JOB_STATE_NEW = "new"
+JOB_STATE_SEEN = "seen"
+JOB_STATE_UPDATED = "updated"
+_VALID_JOB_STATES = {JOB_STATE_NEW, JOB_STATE_SEEN, JOB_STATE_UPDATED}
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -138,6 +145,22 @@ class NormalizedJobPostingRecord(Base, TimestampMixin):
         nullable=False,
     )
 
+    # Job state tracking
+    job_state: Mapped[str] = mapped_column(
+        String(32), default=JOB_STATE_NEW, nullable=False, index=True
+    )
+    content_hash: Mapped[str] = mapped_column(String(64), default="", nullable=False)
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+
     # Relationships
     raw_posting: Mapped[RawJobPostingRecord] = relationship(back_populates="normalized_posting")
     fit_score: Mapped[FitScoreRecord | None] = relationship(
@@ -176,3 +199,32 @@ class FitScoreRecord(Base, TimestampMixin):
     normalized_posting: Mapped[NormalizedJobPostingRecord] = relationship(
         back_populates="fit_score"
     )
+
+
+# ---------------------------------------------------------------------------
+# ProfileRecord
+# ---------------------------------------------------------------------------
+
+# Valid source_type values
+PROFILE_SOURCE_UI = "ui"
+PROFILE_SOURCE_FILE_IMPORT = "file_import"
+PROFILE_SOURCE_UPLOAD = "upload"
+_VALID_PROFILE_SOURCES = {PROFILE_SOURCE_UI, PROFILE_SOURCE_FILE_IMPORT, PROFILE_SOURCE_UPLOAD}
+
+
+class ProfileRecord(Base, TimestampMixin):
+    """Persisted target profile for multi-profile management."""
+
+    __tablename__ = "profiles"
+    __table_args__ = (UniqueConstraint("slug", name="uq_profile_slug"),)
+
+    id: Mapped[str] = mapped_column(_UUID_COL, primary_key=True, default=_new_uuid)
+    name: Mapped[str] = mapped_column(String(256), nullable=False)
+    slug: Mapped[str] = mapped_column(String(256), nullable=False, index=True)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_suspended: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    source_type: Mapped[str] = mapped_column(
+        String(32), default=PROFILE_SOURCE_UI, nullable=False
+    )
+    profile_data_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)

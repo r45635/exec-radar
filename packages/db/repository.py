@@ -13,6 +13,10 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from packages.db.job_state import (
+    classify_job_state,
+    compute_content_hash,
+)
 from packages.db.models import (
     FitScoreRecord,
     NormalizedJobPostingRecord,
@@ -144,7 +148,12 @@ async def save_normalized_postings(
     *,
     raw_record_map: dict[str, str],
 ) -> list[NormalizedJobPostingRecord]:
-    """Persist normalized postings, upserting by ``job_id``.
+    """Persist normalized postings, upserting by ``job_id`` with state tracking.
+
+    Classifies each job as:
+    - "new" if first time seen (job_id not in database)
+    - "seen" if seen before and content hash unchanged
+    - "updated" if seen before and content hash changed
 
     Args:
         session: Active async session.
@@ -155,11 +164,16 @@ async def save_normalized_postings(
         List of persisted :class:`NormalizedJobPostingRecord` objects.
     """
     records: list[NormalizedJobPostingRecord] = []
+    now = datetime.now(UTC)
+
     for p in postings:
         raw_key = f"{p.source}:{p.source_id}"
         raw_id = raw_record_map.get(raw_key)
         if raw_id is None:
             continue  # shouldn't happen, but guard
+
+        # Compute current content hash
+        current_hash = compute_content_hash(p)
 
         # Check existing
         stmt = select(NormalizedJobPostingRecord).where(
@@ -169,6 +183,14 @@ async def save_normalized_postings(
         existing = result.scalar_one_or_none()
 
         if existing is not None:
+            # Existing job: classify as seen or updated
+            previous_hash = existing.content_hash or ""
+            job_state = classify_job_state(
+                is_new=False,
+                previous_hash=previous_hash,
+                current_hash=current_hash,
+            )
+
             # Update fields
             existing.title = p.title
             existing.company = p.company
@@ -181,9 +203,13 @@ async def save_normalized_postings(
             existing.salary_currency = p.salary_currency
             existing.tags_json = json.dumps(p.tags)
             existing.normalized_at = p.normalized_at
+            existing.job_state = job_state
+            existing.content_hash = current_hash
+            existing.last_seen_at = now
             records.append(existing)
             continue
 
+        # New job
         record = NormalizedJobPostingRecord(
             raw_posting_id=raw_id,
             job_id=p.id,
@@ -202,6 +228,10 @@ async def save_normalized_postings(
             tags_json=json.dumps(p.tags),
             posted_at=p.posted_at,
             normalized_at=p.normalized_at,
+            job_state="new",
+            content_hash=current_hash,
+            first_seen_at=now,
+            last_seen_at=now,
         )
         session.add(record)
         records.append(record)
@@ -331,6 +361,6 @@ async def get_scored_jobs(
             skills_match=score_rec.skills_match,
             explanation=score_rec.explanation,
         )
-        scored.append(ScoredJob(job=job, score=score))
+        scored.append(ScoredJob(job=job, score=score, job_state=norm_rec.job_state))
 
     return scored

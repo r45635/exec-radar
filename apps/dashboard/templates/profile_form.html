@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+
+{% block title %}{% if mode == 'edit' %}Edit Profile{% else %}New Profile{% endif %} - Exec Radar{% endblock %}
+
+{% block content %}
+<div class="profiles-header">
+    <h2>{% if mode == 'edit' %}Edit Profile{% else %}Create New Profile{% endif %}</h2>
+    <a href="/dashboard/profiles" class="btn btn-secondary">&larr; Back to Profiles</a>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<form method="post" class="profile-form" data-testid="profile-form">
+
+    <fieldset>
+        <legend>Profile Info</legend>
+        <div class="form-group">
+            <label for="name">Profile Name *</label>
+            <input type="text" id="name" name="name" required maxlength="256"
+                   value="{{ profile.name if profile else '' }}" placeholder="e.g. Semiconductor COO" />
+        </div>
+        <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" rows="2" maxlength="2000"
+                      placeholder="A short description of this profile">{{ profile.description if profile else '' }}</textarea>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Title Preferences</legend>
+        <div class="form-group">
+            <label for="target_titles">Target Titles <span class="hint">(one per line)</span></label>
+            <textarea id="target_titles" name="target_titles" rows="4"
+                      placeholder="chief operating officer&#10;coo&#10;vp of operations">{% if profile and profile.data %}{% for t in profile.data.get('target_titles', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="adjacent_titles">Adjacent Titles <span class="hint">(one per line)</span></label>
+            <textarea id="adjacent_titles" name="adjacent_titles" rows="4"
+                      placeholder="vp manufacturing&#10;head of supply chain">{% if profile and profile.data %}{% for t in profile.data.get('adjacent_titles', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="excluded_titles">Excluded Titles <span class="hint">(one per line)</span></label>
+            <textarea id="excluded_titles" name="excluded_titles" rows="2"
+                      placeholder="intern&#10;junior">{% if profile and profile.data %}{% for t in profile.data.get('excluded_titles', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Industry Preferences</legend>
+        <div class="form-group">
+            <label for="target_industries">Target Industries <span class="hint">(one per line)</span></label>
+            <textarea id="target_industries" name="target_industries" rows="3"
+                      placeholder="semiconductor&#10;automotive&#10;aerospace">{% if profile and profile.data %}{% for t in profile.data.get('target_industries', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="adjacent_industries">Adjacent Industries <span class="hint">(one per line)</span></label>
+            <textarea id="adjacent_industries" name="adjacent_industries" rows="3"
+                      placeholder="energy&#10;chemicals">{% if profile and profile.data %}{% for t in profile.data.get('adjacent_industries', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Keywords</legend>
+        <div class="form-group">
+            <label for="must_have_keywords">Must-Have Keywords <span class="hint">(one per line)</span></label>
+            <textarea id="must_have_keywords" name="must_have_keywords" rows="2"
+                      placeholder="operations&#10;manufacturing">{% if profile and profile.data %}{% for t in profile.data.get('must_have_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="strong_keywords">Strong Keywords <span class="hint">(one per line)</span></label>
+            <textarea id="strong_keywords" name="strong_keywords" rows="3"
+                      placeholder="supply chain&#10;P&amp;L&#10;lean">{% if profile and profile.data %}{% for t in profile.data.get('strong_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="nice_to_have_keywords">Nice-to-Have Keywords <span class="hint">(one per line)</span></label>
+            <textarea id="nice_to_have_keywords" name="nice_to_have_keywords" rows="3"
+                      placeholder="ERP&#10;digital transformation">{% if profile and profile.data %}{% for t in profile.data.get('nice_to_have_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="excluded_keywords">Excluded Keywords <span class="hint">(one per line)</span></label>
+            <textarea id="excluded_keywords" name="excluded_keywords" rows="2"
+                      placeholder="internship&#10;unpaid">{% if profile and profile.data %}{% for t in profile.data.get('excluded_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Scope &amp; Geography</legend>
+        <div class="form-group">
+            <label for="preferred_scope_keywords">Scope Keywords <span class="hint">(one per line)</span></label>
+            <textarea id="preferred_scope_keywords" name="preferred_scope_keywords" rows="3"
+                      placeholder="global&#10;multi-site&#10;budget">{% if profile and profile.data %}{% for t in profile.data.get('preferred_scope_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="target_geographies">Target Geographies <span class="hint">(one per line)</span></label>
+            <textarea id="target_geographies" name="target_geographies" rows="3"
+                      placeholder="france&#10;germany&#10;europe">{% if profile and profile.data %}{% for t in profile.data.get('target_geographies', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Scoring Weights <span class="hint">(must sum to ~1.0)</span></legend>
+        <div class="weights-grid">
+            <div class="form-group">
+                <label for="weight_title">Title</label>
+                <input type="number" id="weight_title" name="weight_title" step="0.05" min="0" max="1"
+                       value="{{ profile.data.get('weight_title', 0.25) if profile and profile.data else 0.25 }}" />
+            </div>
+            <div class="form-group">
+                <label for="weight_seniority">Seniority</label>
+                <input type="number" id="weight_seniority" name="weight_seniority" step="0.05" min="0" max="1"
+                       value="{{ profile.data.get('weight_seniority', 0.15) if profile and profile.data else 0.15 }}" />
+            </div>
+            <div class="form-group">
+                <label for="weight_industry">Industry</label>
+                <input type="number" id="weight_industry" name="weight_industry" step="0.05" min="0" max="1"
+                       value="{{ profile.data.get('weight_industry', 0.15) if profile and profile.data else 0.15 }}" />
+            </div>
+            <div class="form-group">
+                <label for="weight_scope">Scope</label>
+                <input type="number" id="weight_scope" name="weight_scope" step="0.05" min="0" max="1"
+                       value="{{ profile.data.get('weight_scope', 0.10) if profile and profile.data else 0.10 }}" />
+            </div>
+            <div class="form-group">
+                <label for="weight_geography">Geography</label>
+                <input type="number" id="weight_geography" name="weight_geography" step="0.05" min="0" max="1"
+                       value="{{ profile.data.get('weight_geography', 0.10) if profile and profile.data else 0.10 }}" />
+            </div>
+            <div class="form-group">
+                <label for="weight_keyword_clusters">Keyword Clusters</label>
+                <input type="number" id="weight_keyword_clusters" name="weight_keyword_clusters" step="0.05" min="0" max="1"
+                       value="{{ profile.data.get('weight_keyword_clusters', 0.25) if profile and profile.data else 0.25 }}" />
+            </div>
+        </div>
+    </fieldset>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{% if mode == 'edit' %}Update Profile{% else %}Create Profile{% endif %}</button>
+        <a href="/dashboard/profiles" class="btn btn-secondary">Cancel</a>
+    </div>
+</form>
+{% endblock %}

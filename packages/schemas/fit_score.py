@@ -21,3 +21,24 @@ class FitScore(BaseModel):
     location_match: float = Field(default=0.0, ge=0.0, le=1.0, description="Location fit")
     skills_match: float = Field(default=0.0, ge=0.0, le=1.0, description="Skills overlap")
     explanation: str = Field(default="", description="Human-readable reasoning")
+
+    # ── New structured scoring fields ─────────────────────────────
+    dimension_scores: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Per-dimension scores keyed by name "
+            "(title, seniority, industry, scope, geography, keyword_clusters)."
+        ),
+    )
+    why_matched: list[str] = Field(
+        default_factory=list,
+        description="Reasons the posting is a good fit.",
+    )
+    why_penalized: list[str] = Field(
+        default_factory=list,
+        description="Reasons the posting lost points.",
+    )
+    red_flags: list[str] = Field(
+        default_factory=list,
+        description="Hard negatives or deal-breakers.",
+    )
