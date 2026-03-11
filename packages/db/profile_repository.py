@@ -7,8 +7,10 @@ for committing / rolling back.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 import yaml
 from sqlalchemy import select, update
@@ -16,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from packages.db.models import ProfileRecord
 from packages.schemas.target_profile import TargetProfile
+
+logger = logging.getLogger(__name__)
 
 
 def _slugify(name: str) -> str:
@@ -323,3 +327,53 @@ async def resolve_active_target_profile(
     if record is None:
         return TargetProfile()
     return _json_to_profile(record.profile_data_json)
+
+
+# ---------------------------------------------------------------------------
+# Auto-seed from YAML files
+# ---------------------------------------------------------------------------
+
+
+async def seed_profiles_from_directory(
+    session: AsyncSession,
+    directory: str | Path,
+    *,
+    pattern: str = "*.yaml",
+) -> int:
+    """Import YAML profiles from *directory* that are not already in the DB.
+
+    Profiles are matched by slug — if a slug already exists the file is
+    skipped.  Returns the number of newly imported profiles.
+    """
+    profiles_dir = Path(directory)
+    if not profiles_dir.is_dir():
+        return 0
+
+    existing = await list_profiles(session)
+    existing_slugs = {r.slug for r in existing}
+
+    imported = 0
+    for filepath in sorted(profiles_dir.glob(pattern)):
+        try:
+            yaml_content = filepath.read_text(encoding="utf-8")
+            data = yaml.safe_load(yaml_content)
+            if not isinstance(data, dict):
+                continue
+            name = data.get("name", filepath.stem)
+            slug = _slugify(name)
+            if slug in existing_slugs:
+                continue
+            desc = data.get("description", "")
+            await import_profile_from_yaml(
+                session,
+                yaml_content=yaml_content,
+                name=name,
+                description=desc,
+                source_type="file_import",
+            )
+            existing_slugs.add(slug)
+            imported += 1
+        except Exception:
+            logger.debug("Skipping %s during seed", filepath.name, exc_info=True)
+            continue
+    return imported

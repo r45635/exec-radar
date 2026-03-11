@@ -1,0 +1,112 @@
+# Deep-Tech / Hardware Profile  —  Exec Radar
+#
+# Targets VP-level operations roles at AI-chip and deep-tech hardware
+# companies.  Pairs with the 'deeptech_hardware' source set.
+
+preferred_source_set: deeptech_hardware
+
+# ── Title preferences ─────────────────────────────────────────────────
+target_titles:
+  - chief operating officer
+  - coo
+  - vp of operations
+  - vice president of operations
+  - svp operations
+  - head of operations
+
+adjacent_titles:
+  - vp manufacturing
+  - svp manufacturing
+  - head of manufacturing
+  - vp hardware engineering
+  - head of supply chain
+  - vp industrial operations
+  - general manager operations
+
+excluded_titles:
+  - intern
+  - junior
+  - entry level
+  - associate
+  - assistant
+
+# ── Seniority ─────────────────────────────────────────────────────────
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+acceptable_seniority:
+  - director
+  - head
+
+# ── Location / remote ────────────────────────────────────────────────
+preferred_remote_policies:
+  - remote
+  - hybrid
+
+target_geographies:
+  - united states
+  - usa
+  - united kingdom
+  - europe
+
+# ── Industry ──────────────────────────────────────────────────────────
+target_industries:
+  - semiconductor
+  - electronics
+  - advanced manufacturing
+  - artificial intelligence
+
+adjacent_industries:
+  - aerospace
+  - defense
+  - robotics
+
+# ── Keywords ──────────────────────────────────────────────────────────
+must_have_keywords:
+  - operations
+  - manufacturing
+  - hardware
+
+strong_keywords:
+  - supply chain
+  - "P&L"
+  - transformation
+  - silicon
+  - chip
+  - accelerator
+  - production
+  - quality
+  - npi
+
+nice_to_have_keywords:
+  - scale-up
+  - data center
+  - inference
+  - global operations
+  - multi-site
+  - ERP
+  - capex
+
+excluded_keywords:
+  - entry level
+  - unpaid
+  - internship
+
+# ── Scope ─────────────────────────────────────────────────────────────
+preferred_scope_keywords:
+  - global
+  - multi-site
+  - international
+  - budget
+  - headcount
+  - direct reports
+
+# ── Scoring weights ──────────────────────────────────────────────────
+weight_title: 0.25
+weight_seniority: 0.15
+weight_industry: 0.15
+weight_scope: 0.10
+weight_geography: 0.10
+weight_keyword_clusters: 0.25

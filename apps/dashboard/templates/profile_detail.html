@@ -23,6 +23,12 @@
 <p class="profile-detail-desc">{{ profile.description }}</p>
 {% endif %}
 
+{% if profile.data.get('preferred_source_set') %}
+<div class="profile-detail-meta">
+    <span class="source-badge">Source set: {{ profile.data.get('preferred_source_set') | replace('_',' ') | title }}</span>
+</div>
+{% endif %}
+
 <div class="profile-detail-sections">
     {% macro render_list(title, items) %}
     {% if items %}
@@ -40,13 +46,21 @@
     {{ render_list("Target Titles", profile.data.get('target_titles', [])) }}
     {{ render_list("Adjacent Titles", profile.data.get('adjacent_titles', [])) }}
     {{ render_list("Excluded Titles", profile.data.get('excluded_titles', [])) }}
+    {{ render_list("Target Seniority", profile.data.get('target_seniority', [])) }}
+    {{ render_list("Acceptable Seniority", profile.data.get('acceptable_seniority', [])) }}
+    {{ render_list("Preferred Remote Policies", profile.data.get('preferred_remote_policies', [])) }}
     {{ render_list("Target Industries", profile.data.get('target_industries', [])) }}
     {{ render_list("Adjacent Industries", profile.data.get('adjacent_industries', [])) }}
+    {{ render_list("Preferred Companies", profile.data.get('preferred_companies', [])) }}
+    {{ render_list("Excluded Companies", profile.data.get('excluded_companies', [])) }}
     {{ render_list("Must-Have Keywords", profile.data.get('must_have_keywords', [])) }}
     {{ render_list("Strong Keywords", profile.data.get('strong_keywords', [])) }}
     {{ render_list("Nice-to-Have Keywords", profile.data.get('nice_to_have_keywords', [])) }}
     {{ render_list("Excluded Keywords", profile.data.get('excluded_keywords', [])) }}
+    {{ render_list("Required Keywords", profile.data.get('required_keywords', [])) }}
+    {{ render_list("Preferred Keywords", profile.data.get('preferred_keywords', [])) }}
     {{ render_list("Scope Keywords", profile.data.get('preferred_scope_keywords', [])) }}
+    {{ render_list("Target Locations", profile.data.get('target_locations', [])) }}
     {{ render_list("Target Geographies", profile.data.get('target_geographies', [])) }}
 
     <div class="detail-section">

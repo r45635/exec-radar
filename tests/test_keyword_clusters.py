@@ -61,6 +61,16 @@ class TestScoreClusters:
         )
         assert all(v < 0.05 for v in scores.values())
 
+    def test_semiconductor_process_hit(self) -> None:
+        scores = score_clusters(
+            tags=["semiconductor"],
+            description=(
+                "Process engineering and lithography optimization. "
+                "CVD, etch, and metrology for advanced technology nodes."
+            ),
+        )
+        assert scores["semiconductor_process"] > 0.1
+
 
 class TestAggregateClusterScore:
     """Verify weighted aggregation."""

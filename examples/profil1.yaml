@@ -1,0 +1,235 @@
+name: vincent_semiconductor_executive_ops
+description: Executive profile focused on semiconductor operations, industrialization, supply chain, quality, and global manufacturing leadership.
+preferred_source_set: semiconductor_exec
+
+target_titles:
+  - chief operating officer
+  - coo
+  - vp operations
+  - vice president operations
+  - vp of operations
+  - vice president of operations
+  - vp manufacturing
+  - vice president manufacturing
+  - vp industrial operations
+  - vice president industrial operations
+  - head of operations
+  - general manager
+  - bu general manager
+  - business unit general manager
+  - vp supply chain
+  - vice president supply chain
+
+adjacent_titles:
+  - senior director operations
+  - senior director manufacturing
+  - head of supply chain
+  - head of manufacturing
+  - industrial director
+  - site leader
+  - vp quality
+  - vice president quality
+  - senior director industrialization
+  - senior director global operations
+
+excluded_titles:
+  - intern
+  - junior
+  - entry level
+  - associate
+  - assistant
+  - recruiter
+  - account executive
+  - sales manager
+  - sales director
+  - revenue operations
+  - customer success
+  - frontend developer
+  - software engineer
+  - full stack engineer
+  - product designer
+  - marketing manager
+  - demand generation manager
+  - business development representative
+
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+acceptable_seniority:
+  - director
+  - head
+
+preferred_remote_policies:
+  - remote
+  - hybrid
+  - onsite
+
+target_locations:
+  - Phoenix
+  - Chandler
+  - Tempe
+  - Scottsdale
+  - Arizona
+  - Toronto
+  - Grenoble
+  - Paris
+  - Eindhoven
+  - Leuven
+  - Amsterdam
+  - Munich
+
+target_geographies:
+  - united states
+  - usa
+  - canada
+  - france
+  - netherlands
+  - belgium
+  - germany
+  - europe
+
+target_industries:
+  - semiconductor
+  - semiconductors
+  - fabless semiconductor
+  - idm
+  - foundry
+  - osat
+  - advanced packaging
+  - automotive electronics
+  - industrial electronics
+  - deeptech hardware
+
+adjacent_industries:
+  - mems
+  - photonics
+  - power electronics
+  - aerospace hardware
+  - robotics hardware
+  - advanced manufacturing
+  - electronics manufacturing services
+
+preferred_companies: []
+
+excluded_companies: []
+
+must_have_keywords:
+  - operations
+  - manufacturing
+  - supply chain
+  - industrialization
+
+strong_keywords:
+  - semiconductor
+  - fabless
+  - foundry
+  - osat
+  - outsourced manufacturing
+  - subcontractor
+  - external manufacturing
+  - contract manufacturing
+  - backend
+  - assembly
+  - test
+  - wafer sort
+  - final test
+  - packaging
+  - advanced packaging
+  - supplier quality
+  - industrialization
+  - npi
+  - ramp
+  - high volume
+  - hvm
+  - supply chain
+  - sourcing
+  - procurement
+  - manufacturing
+  - quality
+  - operational excellence
+  - automotive
+  - global
+  - multi-site
+  - reliability
+  - yield
+  - wafer
+  - fab
+
+nice_to_have_keywords:
+  - fd-soi
+  - mems
+  - photonics
+  - ppap
+  - apqp
+  - fmea
+  - fmeda
+  - iatf 16949
+  - iso 26262
+  - aec-q100
+  - lean
+  - six sigma
+  - supplier development
+  - footprint strategy
+  - business unit
+
+excluded_keywords:
+  - saas
+  - b2c
+  - growth marketing
+  - demand generation
+  - sdr
+  - customer success
+  - revenue operations
+  - frontend
+  - full stack
+  - product-led growth
+  - pure software
+  - crm
+  - adtech
+
+preferred_scope_keywords:
+  - global operations
+  - multi-site
+  - international footprint
+  - supply chain leadership
+  - manufacturing operations
+  - industrialization
+  - ramp
+  - high volume
+  - quality systems
+  - foundry management
+  - osat management
+  - business transformation
+  - operational excellence
+  - cross-functional leadership
+  - p&l
+  - budget responsibility
+  - manufacturing footprint
+  - industrial ramp
+  - customer delivery
+
+required_keywords:
+  - operations
+  - manufacturing
+  - supply chain
+
+preferred_keywords:
+  - semiconductor
+  - foundry
+  - osat
+  - automotive
+  - global
+  - multi-site
+  - operational excellence
+  - industrialization
+  - ramp
+  - quality
+
+weight_title: 0.24
+weight_seniority: 0.14
+weight_industry: 0.18
+weight_scope: 0.16
+weight_geography: 0.08
+weight_keyword_clusters: 0.20

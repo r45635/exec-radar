@@ -1,0 +1,173 @@
+name: vincent_broad_industrial_leadership
+description: Broader senior industrial leadership profile across advanced electronics, supply chain, manufacturing, quality, and operational transformation.
+preferred_source_set: broad_exec_ops
+
+target_titles:
+  - chief operating officer
+  - coo
+  - vp operations
+  - vice president operations
+  - vp manufacturing
+  - vice president manufacturing
+  - vp industrial operations
+  - vp supply chain
+  - vice president supply chain
+  - general manager
+  - head of operations
+  - industrial director
+
+adjacent_titles:
+  - senior director operations
+  - senior director manufacturing
+  - operations director
+  - head of supply chain
+  - head of manufacturing
+  - site leader
+  - vp quality
+  - vice president quality
+
+excluded_titles:
+  - intern
+  - junior
+  - associate
+  - assistant
+  - recruiter
+  - account executive
+  - sales manager
+  - customer success
+  - frontend developer
+  - software engineer
+  - full stack engineer
+  - marketing manager
+
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+acceptable_seniority:
+  - director
+  - head
+
+preferred_remote_policies:
+  - remote
+  - hybrid
+  - onsite
+
+target_locations:
+  - Phoenix
+  - Chandler
+  - Toronto
+  - Grenoble
+  - Paris
+  - Eindhoven
+  - Leuven
+  - Amsterdam
+  - Munich
+  - Austin
+
+target_geographies:
+  - united states
+  - usa
+  - canada
+  - france
+  - germany
+  - netherlands
+  - belgium
+  - europe
+
+target_industries:
+  - industrial electronics
+  - advanced manufacturing
+  - semiconductor
+  - semiconductors
+  - automotive electronics
+  - power electronics
+  - deeptech hardware
+
+adjacent_industries:
+  - aerospace
+  - medical devices
+  - robotics hardware
+  - electronics manufacturing services
+  - photonics
+  - mems
+
+preferred_companies: []
+
+excluded_companies: []
+
+must_have_keywords:
+  - operations
+  - manufacturing
+
+strong_keywords:
+  - supply chain
+  - industrialization
+  - manufacturing
+  - quality
+  - operational excellence
+  - automotive
+  - global
+  - multi-site
+  - reliability
+  - sourcing
+  - procurement
+  - transformation
+  - footprint
+  - industrial ramp
+  - customer delivery
+
+nice_to_have_keywords:
+  - semiconductor
+  - foundry
+  - osat
+  - packaging
+  - test
+  - ppap
+  - apqp
+  - fmea
+  - lean
+  - six sigma
+
+excluded_keywords:
+  - saas
+  - growth marketing
+  - demand generation
+  - customer success
+  - revenue operations
+  - frontend
+  - full stack
+  - pure software
+
+preferred_scope_keywords:
+  - global operations
+  - multi-site
+  - supply chain leadership
+  - manufacturing operations
+  - industrialization
+  - quality systems
+  - operational excellence
+  - business transformation
+  - cross-functional leadership
+  - p&l
+  - budget responsibility
+
+required_keywords:
+  - operations
+
+preferred_keywords:
+  - supply chain
+  - manufacturing
+  - industrialization
+  - quality
+  - automotive
+  - global
+  - multi-site
+
+weight_title: 0.22
+weight_seniority: 0.14
+weight_industry: 0.16
+weight_scope: 0.18
+weight_geography: 0.10
+weight_keyword_clusters: 0.20

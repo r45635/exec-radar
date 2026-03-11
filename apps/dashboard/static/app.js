@@ -249,26 +249,25 @@
     `;
   }
 
-  function renderCardsVirtual() {
+  function renderCardsPage() {
     const total = state.filteredIds.length;
-    if (!cardsViewport || !cardsList || !cardsSpacerTop || !cardsSpacerBottom) return;
+    if (!cardsList) return;
 
-    const viewportHeight = cardsViewport.clientHeight || 560;
-    const visibleCount = Math.max(1, Math.ceil(viewportHeight / CARD_ITEM_HEIGHT));
-    const start = Math.max(0, state.cardStart - CARD_BUFFER);
-    const end = Math.min(total, start + visibleCount + CARD_BUFFER * 2);
+    const pageCount = Math.max(1, Math.ceil(total / state.pageSize));
+    if (state.page > pageCount) state.page = pageCount;
 
-    cardsSpacerTop.style.height = `${start * CARD_ITEM_HEIGHT}px`;
-    cardsSpacerBottom.style.height = `${Math.max(0, (total - end) * CARD_ITEM_HEIGHT)}px`;
+    const start = (state.page - 1) * state.pageSize;
+    const end = start + state.pageSize;
 
     const html = state.filteredIds.slice(start, end).map(buildCard).join("");
     cardsList.innerHTML = html;
 
+    if (pageInfo) pageInfo.textContent = `Page ${state.page} / ${pageCount}`;
+    if (pagePrevBtn) pagePrevBtn.disabled = state.page <= 1;
+    if (pageNextBtn) pageNextBtn.disabled = state.page >= pageCount;
     if (visibleCount) {
-      const label =
-        total < rows.length ? `${total} of ${rows.length} shown` : `${rows.length} shown`;
-      const countEl = document.querySelector("[data-testid='visible-count']");
-      if (countEl) countEl.textContent = label;
+      visibleCount.textContent =
+        total < rows.length ? `${total} of ${rows.length} shown` : "";
     }
   }
 
@@ -286,8 +285,8 @@
       });
       if (tableView) tableView.hidden = true;
       if (cardsView) cardsView.hidden = false;
-      if (pagination) pagination.hidden = true;
-      renderCardsVirtual();
+      if (pagination) pagination.hidden = false;
+      renderCardsPage();
     }
 
     syncSortHeaders();
@@ -346,18 +345,46 @@
 
     const pct = Math.round(Number(row.dataset.score || 0) * 100);
     document.getElementById("detail-score-pct").textContent = `${pct}%`;
-    document.getElementById("dim-title").style.width = `${Math.round(
-      Number(row.dataset.scoreTitle || 0) * 100
-    )}%`;
-    document.getElementById("dim-seniority").style.width = `${Math.round(
-      Number(row.dataset.scoreSeniority || 0) * 100
-    )}%`;
-    document.getElementById("dim-location").style.width = `${Math.round(
-      Number(row.dataset.scoreLocation || 0) * 100
-    )}%`;
-    document.getElementById("dim-skills").style.width = `${Math.round(
-      Number(row.dataset.scoreSkills || 0) * 100
-    )}%`;
+
+    // 6-dimension bars (new structured scores)
+    const dims = [
+      { id: "dim-title", key: "dimTitle" },
+      { id: "dim-seniority", key: "dimSeniority" },
+      { id: "dim-industry", key: "dimIndustry" },
+      { id: "dim-scope", key: "dimScope" },
+      { id: "dim-geography", key: "dimGeography" },
+      { id: "dim-kw", key: "dimKw" },
+    ];
+    dims.forEach(({ id, key }) => {
+      const val = Math.round(Number(row.dataset[key] || 0) * 100);
+      document.getElementById(id).style.width = `${val}%`;
+      const pctEl = document.getElementById(`${id}-pct`);
+      if (pctEl) pctEl.textContent = `${val}%`;
+    });
+
+    // Structured why / penalties / red flags
+    const whySection = document.getElementById("detail-why-section");
+    const whyMatchedEl = document.getElementById("detail-why-matched");
+    const whyPenalizedEl = document.getElementById("detail-why-penalized");
+    const redFlagsEl = document.getElementById("detail-red-flags");
+
+    const whyMatched = (row.dataset.whyMatched || "").split("||").filter(Boolean);
+    const whyPenalized = (row.dataset.whyPenalized || "").split("||").filter(Boolean);
+    const redFlags = (row.dataset.redFlags || "").split("||").filter(Boolean);
+
+    const hasStructured = whyMatched.length || whyPenalized.length || redFlags.length;
+    whySection.style.display = hasStructured ? "" : "none";
+
+    whyMatchedEl.innerHTML = whyMatched.length
+      ? `<h4 class="why-heading why-heading-match">&#x2714; Matched</h4><ul>${whyMatched.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`
+      : "";
+    whyPenalizedEl.innerHTML = whyPenalized.length
+      ? `<h4 class="why-heading why-heading-penalty">&#x26A0; Penalized</h4><ul>${whyPenalized.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`
+      : "";
+    redFlagsEl.innerHTML = redFlags.length
+      ? `<h4 class="why-heading why-heading-red">&#x2716; Red Flags</h4><ul>${redFlags.map(w => `<li>${escapeHtml(w)}</li>`).join("")}</ul>`
+      : "";
+
     document.getElementById("detail-explanation").textContent = row.dataset.explanation || "";
 
     const tagsSection = document.getElementById("detail-tags-section");
@@ -554,10 +581,7 @@
 
   if (cardsViewport) {
     cardsViewport.addEventListener("scroll", () => {
-      state.cardStart = Math.floor(cardsViewport.scrollTop / CARD_ITEM_HEIGHT);
-      if (state.view === "cards") {
-        renderCardsVirtual();
-      }
+      // Cards now use pagination; scroll handler kept for future use.
     });
   }
 

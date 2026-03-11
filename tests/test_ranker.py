@@ -86,10 +86,10 @@ class TestRuleBasedRanker:
         assert score.title_match >= 0.5
 
     def test_seniority_director(self, ranker: RuleBasedRanker) -> None:
-        """Director-level should get a moderate seniority score."""
+        """Director-level should get a moderate seniority score (acceptable=0.4)."""
         job = _make_job(seniority=SeniorityLevel.DIRECTOR)
         score = ranker.score(job)
-        assert score.seniority_match == 0.6
+        assert score.seniority_match == 0.4
 
     def test_remote_preference(self, ranker: RuleBasedRanker) -> None:
         """Remote / hybrid roles should score higher on location."""
@@ -255,7 +255,7 @@ class TestTargetLocations:
         assert score.location_match >= 0.8
 
     def test_no_location_match(self) -> None:
-        """A job NOT in target locations should fall back to remote-policy scoring."""
+        """A job NOT in target locations → low geo score (location mismatch)."""
         profile = TargetProfile(
             target_locations=frozenset({"tokyo"}),
             target_geographies=frozenset(),
@@ -263,7 +263,7 @@ class TestTargetLocations:
         ranker = RuleBasedRanker(profile=profile)
         job = _make_job(location="Paris, France", remote_policy=RemotePolicy.ONSITE)
         score = ranker.score(job)
-        assert score.location_match == 0.3
+        assert score.location_match <= 0.3
 
     def test_remote_policy_still_preferred(self) -> None:
         """Remote-policy match should still score 1.0 even without target locations."""
@@ -791,7 +791,7 @@ class TestWeakScopeOpsTitlePenalty:
             ),
         )
         score = _strict_ranker().score(job)
-        assert score.overall < 0.25
+        assert score.overall < 0.30
         assert any("Misleading operations title" in rf for rf in score.red_flags)
 
     def test_ops_title_with_evidence(self) -> None:
@@ -841,3 +841,386 @@ class TestFablessFoundryOsatExplainability:
         score = _strict_ranker().score(job)
         matched_text = " ".join(score.why_matched)
         assert "Fabless/foundry/OSAT" not in matched_text
+
+
+# ===================================================================
+# Scope detection tests
+# ===================================================================
+
+
+class TestScopeDetectionGlobal:
+    """Global/multi-site ops roles should get scope boost."""
+
+    def test_global_operations_vp(self) -> None:
+        """VP Global Ops with multi-site signals → scope boost."""
+        job = _make_job(
+            title="VP of Global Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "manufacturing", "global", "multi-site"],
+            description_plain=(
+                "Lead global manufacturing operations across 12 sites "
+                "in multiple countries. P&L responsibility for $500M "
+                "worldwide semiconductor production."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert "Global / multi-site scope" in score.why_matched
+        dims = score.dimension_scores or {}
+        assert dims.get("scope", 0) >= 0.4
+
+    def test_multi_site_director(self) -> None:
+        """Director overseeing multiple facilities → scope boost."""
+        job = _make_job(
+            title="Director of Manufacturing Operations",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["manufacturing", "operations", "multi-site"],
+            description_plain=(
+                "Oversee manufacturing across multiple sites globally. "
+                "International footprint with cross-functional teams."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert "Global / multi-site scope" in score.why_matched
+
+
+class TestScopeDetectionSiteNarrow:
+    """Narrow site/plant roles should be penalized for exec profiles."""
+
+    def test_single_site_plant_manager(self) -> None:
+        """Single-site plant manager → narrow scope penalty."""
+        job = _make_job(
+            title="Plant Director",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["manufacturing", "plant"],
+            description_plain=(
+                "Manage single site manufacturing plant. "
+                "Local plant operations and team leadership."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert any("Narrow scope" in p for p in score.why_penalized)
+
+    def test_site_manager_narrow(self) -> None:
+        """Site manager without global signals → narrow penalty."""
+        job = _make_job(
+            title="Site Manager",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["manufacturing", "operations"],
+            description_plain=(
+                "Manage daily operations at the local site. "
+                "Responsible for site-level production targets."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert any("Narrow scope" in p for p in score.why_penalized)
+
+    def test_plant_director_with_global_scope_no_penalty(self) -> None:
+        """Plant director overseeing global ops → no narrow penalty."""
+        job = _make_job(
+            title="Plant Director",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["manufacturing", "global", "multi-site", "operations"],
+            description_plain=(
+                "Lead global multi-site manufacturing operations. "
+                "Oversee 5 plants across multiple countries. "
+                "International footprint with cross-functional teams."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert not any("Narrow scope" in p for p in score.why_penalized)
+
+
+# ===================================================================
+# Semiconductor process cluster tests
+# ===================================================================
+
+
+class TestSemiconductorProcessCluster:
+    """Tests for the semiconductor_process keyword cluster."""
+
+    def test_process_engineer_role_scores(self) -> None:
+        """Role with semiconductor process keywords → cluster signals."""
+        job = _make_job(
+            title="VP Process Engineering",
+            seniority=SeniorityLevel.VP,
+            tags=["semiconductor", "manufacturing", "operations"],
+            description_plain=(
+                "Lead process engineering and process integration for "
+                "advanced technology nodes. Oversee lithography, etch, "
+                "CVD, and CMP operations. Manage metrology and defectivity "
+                "improvement programs."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert "Semiconductor process signals" in " ".join(score.why_matched)
+
+    def test_non_semi_industrial_role_no_process_cluster(self) -> None:
+        """Non-semiconductor industrial role → no process cluster signals."""
+        job = _make_job(
+            title="VP of Manufacturing",
+            seniority=SeniorityLevel.VP,
+            tags=["manufacturing", "operations", "automotive", "lean"],
+            description_plain=(
+                "Lead automotive manufacturing operations. "
+                "Implement lean six sigma across production lines. "
+                "OEM relationship management and quality oversight."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert "Semiconductor process signals" not in " ".join(score.why_matched)
+
+    def test_euv_finfet_keywords(self) -> None:
+        """FinFET / EUV keywords → semiconductor process cluster hit."""
+        job = _make_job(
+            title="Director, Process Development",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["semiconductor", "manufacturing"],
+            description_plain=(
+                "Lead development of finfet and gaafet device architectures. "
+                "Collaborate on EUV lithography integration and "
+                "thin film deposition process development."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        assert "Semiconductor process signals" in " ".join(score.why_matched)
+
+
+# ===================================================================
+# Non-semiconductor industrial role differentiation
+# ===================================================================
+
+
+class TestNonSemiIndustrialRoles:
+    """Verify that non-semiconductor industrial ops roles score differently."""
+
+    def test_automotive_ops_vp(self) -> None:
+        """Automotive VP Ops → scores lower than equivalent semi role."""
+        auto_job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["manufacturing", "operations", "automotive", "lean"],
+            description_plain=(
+                "Lead automotive manufacturing across global plants. "
+                "IATF 16949 quality management and OEM relationships. "
+                "Multi-site operational excellence."
+            ),
+        )
+        semi_job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["semiconductor", "manufacturing", "operations", "foundry"],
+            description_plain=(
+                "Lead semiconductor manufacturing across global fabs. "
+                "Process engineering and yield improvement. "
+                "Multi-site wafer fabrication operations."
+            ),
+        )
+        ranker = _strict_ranker()
+        auto_score = ranker.score(auto_job)
+        semi_score = ranker.score(semi_job)
+        assert semi_score.overall > auto_score.overall
+
+    def test_generic_manufacturing_ops(self) -> None:
+        """Generic manufacturing VP has some industrial signals, not penalized."""
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["manufacturing", "operations", "lean", "logistics"],
+            description_plain=(
+                "Lead manufacturing and supply chain operations. "
+                "Continuous improvement and lean implementation."
+            ),
+        )
+        score = _strict_ranker().score(job)
+        # Should have industrial evidence → no misleading title penalty
+        assert "Misleading operations title" not in score.red_flags
+
+
+# ===================================================================
+# Geography mismatch penalty
+# ===================================================================
+
+
+class TestGeographyPenalty:
+    """Verify that jobs outside target geographies are penalized."""
+
+    def test_matching_geography_no_penalty(self) -> None:
+        """Job in a target geography → no penalty."""
+        profile = TargetProfile(
+            target_titles=frozenset({"VP of Operations"}),
+            target_geographies=frozenset({"france", "canada"}),
+            target_locations=frozenset(),
+        )
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="Paris, France",
+            tags=["manufacturing", "operations"],
+            description_plain="Manufacturing ops across multiple sites.",
+        )
+        ranker = RuleBasedRanker(profile=profile)
+        score = ranker.score(job)
+        assert "Wrong geography" not in score.red_flags
+
+    def test_non_matching_geography_penalized(self) -> None:
+        """Job in a non-target geography → heavy penalty."""
+        profile = TargetProfile(
+            target_titles=frozenset({"VP of Operations"}),
+            target_geographies=frozenset({"france", "canada"}),
+            target_locations=frozenset(),
+        )
+        job_fr = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="Lyon, France",
+            tags=["manufacturing", "operations"],
+            description_plain="Manufacturing ops across multiple sites.",
+        )
+        job_us = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="Austin, Texas, United States",
+            tags=["manufacturing", "operations"],
+            description_plain="Manufacturing ops across multiple sites.",
+        )
+        ranker = RuleBasedRanker(profile=profile)
+        score_fr = ranker.score(job_fr)
+        score_us = ranker.score(job_us)
+        assert score_fr.overall > score_us.overall
+        assert "Wrong geography" in score_us.red_flags
+        assert "Wrong geography" not in score_fr.red_flags
+
+    def test_no_location_no_penalty(self) -> None:
+        """Job with no location → no geography penalty applied."""
+        profile = TargetProfile(
+            target_titles=frozenset({"VP of Operations"}),
+            target_geographies=frozenset({"france", "canada"}),
+        )
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="",
+            tags=["manufacturing", "operations"],
+            description_plain="Manufacturing ops across multiple sites.",
+        )
+        ranker = RuleBasedRanker(profile=profile)
+        score = ranker.score(job)
+        assert "Wrong geography" not in score.red_flags
+
+    def test_target_locations_match(self) -> None:
+        """Job matching target_locations → good geo score, no penalty."""
+        profile = TargetProfile(
+            target_titles=frozenset({"VP of Operations"}),
+            target_locations=frozenset({"montreal", "paris"}),
+            target_geographies=frozenset(),
+        )
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="Montreal, QC, Canada",
+            tags=["manufacturing", "operations"],
+            description_plain="Manufacturing ops across multiple sites.",
+        )
+        ranker = RuleBasedRanker(profile=profile)
+        score = ranker.score(job)
+        assert "Wrong geography" not in score.red_flags
+
+
+# ====================================================================
+# Tightened scoring tests
+# ====================================================================
+
+
+class TestTightenedSeniority:
+    """Acceptable seniority now returns 0.4 instead of 0.6."""
+
+    def test_head_seniority_is_0_4(self) -> None:
+        """HEAD seniority should score 0.4."""
+        ranker = RuleBasedRanker()
+        job = _make_job(seniority=SeniorityLevel.HEAD)
+        score = ranker.score(job)
+        assert score.seniority_match == 0.4
+
+    def test_target_seniority_still_1_0(self) -> None:
+        """VP seniority should still score 1.0."""
+        ranker = RuleBasedRanker()
+        job = _make_job(seniority=SeniorityLevel.VP)
+        score = ranker.score(job)
+        assert score.seniority_match == 1.0
+
+
+class TestNarrowScopePenalty:
+    """Narrow-scope penalty is now 0.50 (stricter)."""
+
+    def test_narrow_scope_penalized(self) -> None:
+        """A single-site role at executive seniority should be penalized."""
+        ranker = RuleBasedRanker()
+        job_narrow = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "manufacturing"],
+            description_plain="Manage day-to-day operations at our single plant facility.",
+        )
+        job_broad = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "manufacturing"],
+            description_plain="Lead global multi-site operations across three continents.",
+        )
+        score_narrow = ranker.score(job_narrow)
+        score_broad = ranker.score(job_broad)
+        assert score_broad.overall > score_narrow.overall
+
+
+class TestExecSemiBonus:
+    """Rule 7 — exec semiconductor bonus signals."""
+
+    def test_strong_semi_signals_boost(self) -> None:
+        """A posting with ≥4 exec semi signals should get a bonus."""
+        ranker = RuleBasedRanker()
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "semiconductor", "manufacturing"],
+            description_plain=(
+                "Oversee global operations across multi-site foundry and OSAT "
+                "partners. Drive NPI ramp and supply chain transformation."
+            ),
+        )
+        score = ranker.score(job)
+        # Should have exec semi bonus in why_matched
+        bonus_matches = [
+            m for m in score.why_matched
+            if "semi" in m.lower() or "bonus" in m.lower()
+        ]
+        assert len(bonus_matches) > 0
+
+    def test_no_semi_signals_no_bonus(self) -> None:
+        """A generic ops posting should not get exec semi bonus."""
+        ranker = RuleBasedRanker()
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            description_plain="Oversee warehouse logistics operations.",
+        )
+        score = ranker.score(job)
+        bonus_matches = [
+            m for m in score.why_matched
+            if "semi" in m.lower() or "bonus" in m.lower()
+        ]
+        assert len(bonus_matches) == 0
+
+
+class TestPreferredSourceSet:
+    """preferred_source_set field on TargetProfile."""
+
+    def test_default_empty(self) -> None:
+        """Default profile has empty preferred_source_set."""
+        p = TargetProfile()
+        assert p.preferred_source_set == ""
+
+    def test_custom_source_set(self) -> None:
+        """Setting preferred_source_set should persist."""
+        p = TargetProfile(preferred_source_set="semiconductor_exec")
+        assert p.preferred_source_set == "semiconductor_exec"

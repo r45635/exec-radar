@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{% block title %}Exec Radar{% endblock %}</title>
-    <link rel="stylesheet" href="/dashboard/static/style.css" />
+    <link rel="stylesheet" href="/dashboard/static/style.css?v={{ static_version }}" />
 </head>
 <body>
     <nav class="navbar" data-testid="navbar">
@@ -14,6 +14,7 @@
             <div class="nav-links">
                 <a href="/dashboard/" class="nav-link">Jobs</a>
                 <a href="/dashboard/profiles" class="nav-link">Profiles</a>
+                <a href="/dashboard/compare" class="nav-link">Compare</a>
             </div>
         </div>
         <div class="nav-right">

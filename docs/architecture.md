@@ -66,9 +66,10 @@ Similar executive titles are mapped to canonical **title families** (e.g., "COO"
 Four domain-specific keyword clusters are defined in `packages/rankers/keyword_clusters.py`:
 
 1. **semiconductor\_manufacturing** — wafer, fab, yield, cleanroom, etc.
-2. **automotive\_quality** — IATF, APQP, FMEA, OEM, etc.
-3. **executive\_operations\_leadership** — lean, six sigma, P&L, transformation, etc.
-4. **supply\_chain\_industrialization** — NPI, S&OP, procurement, ramp-up, etc.
+2. **fabless\_foundry\_osat** — fabless, foundry, OSAT, advanced packaging, supplier quality, etc.
+3. **automotive\_quality** — IATF, APQP, FMEA, OEM, etc.
+4. **executive\_operations\_leadership** — lean, six sigma, P&L, transformation, etc.
+5. **supply\_chain\_industrialization** — NPI, S&OP, procurement, ramp-up, etc.
 
 #### Structured output
 
@@ -92,14 +93,31 @@ Profiles can be loaded from YAML via `packages.profile_loader.load_profile(path)
 |-----------|--------|--------|
 | `MockCollector` | Hard-coded samples | None |
 | `GreenhouseCollector` | Greenhouse Boards API (unauthenticated public JSON) | `board_token` / `EXEC_RADAR_GREENHOUSE_BOARD` |
+| `LeverCollector` | Lever Postings API (unauthenticated public JSON) | `company_slug` / `EXEC_RADAR_LEVER_COMPANY` |
+| `AshbyCollector` | Ashby career pages (embedded `window.__appData` JSON) | `company_slug` / `EXEC_RADAR_ASHBY_COMPANY` |
 
-The active collector is controlled by the `EXEC_RADAR_COLLECTOR` environment variable (`mock` by default). `GreenhouseCollector` accepts an injected `httpx.AsyncClient`, keeping the network boundary explicit and easy to mock in tests.
+The active collector is controlled by the `EXEC_RADAR_COLLECTOR` environment variable (`mock` by default). Supported values: `mock`, `greenhouse`, `lever`, `ashby`, `all`, or combinations like `greenhouse+lever+ashby`. All real collectors accept an injected `httpx.AsyncClient`, keeping the network boundary explicit and easy to mock in tests.
 
 ### Service Assembly
 
 Component construction is centralized in `packages/services.py`.  The API routes and worker import `build_pipeline_components()` rather than wiring concrete implementations inline.  This keeps the application layer thin and makes it easy to swap implementations (e.g. a real collector or an LLM-based ranker).
 
-Collector selection is driven by the `EXEC_RADAR_COLLECTOR` env var (`mock` or `greenhouse`). Adding a new source requires only implementing `BaseCollector` and registering it in `build_collector()`.
+Collector selection is driven by the `EXEC_RADAR_COLLECTOR` env var (`mock`, `greenhouse`, `lever`, `ashby`, `all`, or `+`-separated combos). Adding a new source requires only implementing `BaseCollector` and registering it in `build_collector()`.
+
+### Named Source Sets
+
+`packages/source_sets.py` provides a registry of curated board collections (`SourceSet`) spanning Greenhouse, Lever, and Ashby.  Each profile can reference a `preferred_source_set`, which takes priority over individual board tokens when building the collector.
+
+Built-in sets:
+- `semiconductor_exec` — 12 Greenhouse + 2 Lever + 2 Ashby boards
+- `deeptech_hardware` — 8 Greenhouse + 2 Lever + 2 Ashby boards
+- `broad_exec_ops` — 10 Greenhouse + 2 Lever + 2 Ashby boards
+
+Source sets can also be selected via `EXEC_RADAR_SOURCE_SET`.
+
+### Multi-Profile Comparison
+
+The dashboard includes a `/dashboard/compare` endpoint that scores the same set of jobs against two different profiles and renders a side-by-side delta table, sorted by |Δ| (absolute score difference).  This enables fast, visual profile tuning without manual inspection.
 
 ### Database Persistence
 
@@ -171,8 +189,7 @@ exec-radar/
 ## Future Components (not yet implemented)
 
 - **pgvector** — vector similarity search for semantic matching.
-- **Playwright collectors** — headless-browser scraping of JavaScript-heavy career sites.
 - **Scheduling** — APScheduler or Celery Beat driving the worker pipeline on a cron.
 - **LLM ranker** — GPT/Claude-based scoring for nuanced profile matching.
-- **Dashboard** — Streamlit or React SPA for browsing and managing opportunities.
 - **Notification channels** — Email, Slack, and webhook delivery.
+- **Additional collectors** — Teamtailor, LinkedIn (Playwright-based), Indeed.

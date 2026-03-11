@@ -21,6 +21,15 @@ class TargetProfile(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
+    # ── Source set preference ────────────────────────────────────
+    preferred_source_set: str = Field(
+        default="",
+        description=(
+            "Named source set to use when collecting jobs for this "
+            "profile (e.g. 'semiconductor_exec'). Empty means default."
+        ),
+    )
+
     # ── Title preferences ──────────────────────────────────────────
     target_titles: frozenset[str] = Field(
         default=frozenset(

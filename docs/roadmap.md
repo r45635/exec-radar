@@ -29,8 +29,12 @@
 - [x] Worker uses persistence when `EXEC_RADAR_DATABASE_URL` is set
 - [x] In-memory SQLite tests for ORM and repository
 - [x] Greenhouse collector (public Boards API, no auth required)
-- [ ] Lever collector (public API)
-- [ ] Ashby / Teamtailor collectors
+- [x] Lever collector (public Postings API, no auth required)
+- [x] Ashby collector (embedded `window.__appData` extraction)
+- [x] Named source sets with multi-ATS support (Greenhouse + Lever + Ashby)
+- [x] Multi-collector support (`+`-separated types and `all` shortcut)
+- [x] CompositeCollector for parallel multi-board / multi-ATS fetching
+- [ ] Teamtailor collector
 - [ ] LinkedIn collector (Playwright-based, future)
 - [ ] Deduplication logic across sources
 
@@ -40,6 +44,9 @@
 - [ ] Embedding-based semantic ranker (OpenAI / Sentence Transformers)
 - [ ] LLM-based profile-match evaluator (GPT-4 / Claude)
 - [x] Configurable target-profile definition (YAML / DB) — basic `TargetProfile` Pydantic model shipped
+- [x] Six-dimension scoring engine (title, seniority, industry, scope, geography, keyword clusters)
+- [x] Five keyword clusters (semiconductor, fabless/OSAT, automotive, exec ops, supply chain)
+- [x] Post-scoring penalty engine (software-heavy, GTM, junior, narrow scope, exec-semi bonus)
 - [ ] A/B comparison of rule-based vs. semantic ranking
 
 ## Phase 3 — Scheduling & Notifications
@@ -53,11 +60,17 @@
 
 ## Phase 4 — Dashboard & UX
 
-- [ ] Streamlit or React dashboard (`apps/dashboard`)
-- [ ] Job browsing with filters (seniority, location, score)
+- [x] FastAPI-served dashboard with Jinja2 templates
+- [x] Table and card views with pagination
+- [x] Search, seniority/remote/status filters
+- [x] Detail panel with full description and scoring breakdown
+- [x] Favorites and dismissed state (browser-local persistence)
+- [x] Job state tracking (new / seen / updated)
+- [x] Multi-profile management (create, edit, activate, delete)
+- [x] Multi-collector status display with colored ATS dots
+- [x] Multi-profile comparison page (`/dashboard/compare`)
 - [ ] Saved searches and watchlists
 - [ ] Application tracking
-- [ ] Profile editor for target criteria
 
 ## Phase 5 — Production Hardening
 

@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Profiles - Exec Radar{% endblock %}
+
+{% block content %}
+<div class="profiles-header">
+    <h2>Compare Profiles</h2>
+    <div class="profiles-actions">
+        <a href="/dashboard/profiles" class="btn btn-secondary">&larr; Profiles</a>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<form method="post" action="/dashboard/compare" class="compare-form">
+    <div class="compare-selectors">
+        <div class="form-group">
+            <label for="profile_a">Profile A</label>
+            <select id="profile_a" name="profile_a" required>
+                <option value="">-- select --</option>
+                {% for p in profiles %}
+                <option value="{{ p.id }}" {% if selected_a is defined and selected_a == p.id|string %}selected{% endif %}>
+                    {{ p.name }}{% if p.is_active %} ★{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="profile_b">Profile B</label>
+            <select id="profile_b" name="profile_b" required>
+                <option value="">-- select --</option>
+                {% for p in profiles %}
+                <option value="{{ p.id }}" {% if selected_b is defined and selected_b == p.id|string %}selected{% endif %}>
+                    {{ p.name }}{% if p.is_active %} ★{% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="max_jobs">Max jobs</label>
+            <input type="number" id="max_jobs" name="max_jobs" value="30" min="5" max="200" style="width:80px"/>
+        </div>
+        <button type="submit" class="btn btn-primary">Compare</button>
+    </div>
+</form>
+
+{% if results is not none and results|length > 0 %}
+<h3 style="margin-top:1.5rem">
+    {{ name_a }} vs {{ name_b }} &mdash; {{ results|length }} jobs sorted by |Δ|
+</h3>
+<div class="table-container">
+<table class="jobs-table compare-table">
+    <thead>
+        <tr>
+            <th>Title</th>
+            <th>Company</th>
+            <th>Location</th>
+            <th>{{ name_a }}</th>
+            <th>{{ name_b }}</th>
+            <th>Δ (A−B)</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for row in results %}
+        <tr>
+            <td>{{ row.title }}</td>
+            <td>{{ row.company }}</td>
+            <td>{{ row.location }}</td>
+            <td class="score-cell">{{ "%.2f"|format(row.score_a) }}</td>
+            <td class="score-cell">{{ "%.2f"|format(row.score_b) }}</td>
+            <td class="score-cell {% if row.delta > 0 %}delta-pos{% elif row.delta < 0 %}delta-neg{% endif %}">
+                {{ "%+.2f"|format(row.delta) }}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+</div>
+{% elif results is not none and results|length == 0 %}
+<p style="margin-top:1rem">No jobs found to compare.</p>
+{% endif %}
+{% endblock %}

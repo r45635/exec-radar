@@ -91,6 +91,12 @@ class RuleBasedRanker(BaseRanker):
         scope_score = self._score_scope(
             job.description_plain, p.preferred_scope_keywords,
         )
+        scope_level = self._detect_scope_level(job.tags, job.description_plain)
+        if scope_level == "global":
+            scope_score = min(1.0, scope_score + 0.25)
+            why_matched.append("Global / multi-site scope")
+        elif scope_level == "regional":
+            scope_score = min(1.0, scope_score + 0.10)
         if scope_score >= 0.4:
             why_matched.append("Good scope indicators")
 
@@ -117,6 +123,13 @@ class RuleBasedRanker(BaseRanker):
         if ffo_score >= 0.10:
             why_matched.append(
                 f"Fabless/foundry/OSAT signals ({ffo_score:.0%})"
+            )
+
+        # -- Semiconductor process cluster explainability ----------
+        sp_score = cluster_scores.get("semiconductor_process", 0.0)
+        if sp_score >= 0.10:
+            why_matched.append(
+                f"Semiconductor process signals ({sp_score:.0%})"
             )
 
         # ── Tiered keyword check ─────────────────────────────────
@@ -177,8 +190,10 @@ class RuleBasedRanker(BaseRanker):
             title_score,
             scope_score,
             cluster_scores,
+            why_matched,
             why_penalized,
             red_flags,
+            geo_score=geo_score,
         )
 
         # ── Company adjustments ───────────────────────────────────
@@ -253,12 +268,14 @@ class RuleBasedRanker(BaseRanker):
         title_score: float,
         scope_score: float,
         cluster_scores: dict[str, float],
+        why_matched: list[str],
         why_penalized: list[str],
         red_flags: list[str],
+        geo_score: float = 0.0,
     ) -> float:
-        """Apply post-scoring penalties for noise reduction.
+        """Apply post-scoring penalties and bonuses.
 
-        Mutates *why_penalized* and *red_flags* in place.
+        Mutates *why_matched*, *why_penalized* and *red_flags* in place.
         Returns the adjusted overall score.
         """
         # -- 1. Software-heavy penalty ----------------------------
@@ -331,19 +348,66 @@ class RuleBasedRanker(BaseRanker):
         )
         if has_broad_scope:
             is_narrow = any(m in combined_text for m in narrow_markers)
-            # Also check: title says Plant Director + no global/multi-site
+            # Detect scope level from tags + description
+            scope_level = RuleBasedRanker._detect_scope_level(
+                job.tags, job.description_plain,
+            )
+            # Plant Director / site manager without global/multi-site
             if (
                 is_narrow
                 or (
                     "plant director" in title_lower
-                    and "multi-site" not in combined_text
-                    and "global" not in combined_text
+                    and scope_level != "global"
+                )
+                or (
+                    "site manager" in title_lower
+                    and scope_level != "global"
                 )
             ):
-                overall *= 0.70
+                overall *= 0.50
                 why_penalized.append(
                     "Narrow scope (single-site/plant) vs. exec profile"
                 )
+
+        # -- 6. Geography mismatch penalty ------------------------
+        #    When the profile specifies target locations/geographies
+        #    AND the job has a known location that doesn't match,
+        #    apply a heavy penalty to push non-matching jobs down.
+        has_geo_prefs = bool(
+            profile.target_locations or profile.target_geographies
+        )
+        job_has_location = bool(job.location and job.location.strip())
+        if has_geo_prefs and job_has_location and geo_score <= 0.3:
+            overall *= 0.30
+            why_penalized.append("Location outside target geographies")
+            red_flags.append("Wrong geography")
+        elif has_geo_prefs and job_has_location and geo_score <= 0.5:
+            overall *= 0.60
+            why_penalized.append("Uncertain geography match")
+
+        # -- 7. Exec semiconductor bonus --------------------------
+        #    Reward postings that combine multiple high-value signals
+        #    for executive semiconductor operations roles.
+        exec_semi_signals = {
+            "global operations", "multi-site", "business unit",
+            "supply chain", "industrialization", "quality",
+            "foundry", "osat", "backend operations",
+            "new product introduction", "npi", "ramp",
+            "p&l", "profit and loss", "transformation",
+        }
+        exec_semi_hits = sum(
+            1 for kw in exec_semi_signals if kw in combined_text
+        )
+        if exec_semi_hits >= 4:
+            overall *= 1.15  # up to 15% boost
+            why_matched.append(
+                f"Exec semiconductor bonus (+15%, {exec_semi_hits} signals)"
+            )
+        elif exec_semi_hits >= 2:
+            overall *= 1.08  # modest boost
+            why_matched.append(
+                f"Exec semiconductor bonus (+8%, {exec_semi_hits} signals)"
+            )
 
         return overall
 
@@ -410,11 +474,11 @@ class RuleBasedRanker(BaseRanker):
         target: frozenset[SeniorityLevel],
         acceptable: frozenset[SeniorityLevel],
     ) -> float:
-        """Return 1.0 for target-level, 0.6 for acceptable, 0.2 otherwise."""
+        """Return 1.0 for target-level, 0.4 for acceptable, 0.2 otherwise."""
         if level in target:
             return 1.0
         if level in acceptable:
-            return 0.6
+            return 0.4
         return 0.2
 
     @staticmethod
@@ -451,6 +515,45 @@ class RuleBasedRanker(BaseRanker):
         hits = sum(1 for kw in scope_keywords if kw.lower() in desc_lower)
         return min(1.0, hits / max(1, len(scope_keywords)))
 
+    _GLOBAL_SCOPE_MARKERS = frozenset({
+        "global", "worldwide", "multi-site", "international",
+        "cross-functional", "enterprise-wide", "multi-country",
+        "multi-region", "multiple sites", "multiple plants",
+    })
+
+    _NARROW_SCOPE_MARKERS = frozenset({
+        "single site", "one plant", "local plant", "site-level",
+        "plant-level", "single facility",
+    })
+
+    @staticmethod
+    def _detect_scope_level(
+        tags: list[str],
+        description: str,
+    ) -> str:
+        """Classify job scope as 'global', 'regional', or 'site'.
+
+        Returns one of ``"global"``, ``"regional"``, or ``"site"``.
+        """
+        combined = " ".join(tags).lower() + " " + description.lower()
+        global_hits = sum(
+            1 for m in RuleBasedRanker._GLOBAL_SCOPE_MARKERS
+            if m in combined
+        )
+        narrow_hits = sum(
+            1 for m in RuleBasedRanker._NARROW_SCOPE_MARKERS
+            if m in combined
+        )
+        if global_hits >= 2:
+            return "global"
+        if global_hits == 1 and narrow_hits == 0:
+            return "global"
+        if narrow_hits >= 1 and global_hits == 0:
+            return "site"
+        if "regional" in combined or "business unit" in combined:
+            return "regional"
+        return "regional"  # default assumption
+
     @staticmethod
     def _score_geography(
         remote_policy: RemotePolicy,
@@ -472,6 +575,9 @@ class RuleBasedRanker(BaseRanker):
                 tg.lower() in loc_lower for tg in target_geographies
             ):
                 return 0.7
+            # Location is known but doesn't match any target — mismatch
+            if target_locations or target_geographies:
+                return 0.2
         if remote_policy == RemotePolicy.UNKNOWN:
             return 0.5
         return 0.3

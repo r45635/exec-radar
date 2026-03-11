@@ -4,18 +4,54 @@
 
 {% block content %}
 
+{# ── Flash message (profile activated) ─────────────────────── #}
+{% if profile_activated %}
+<div class="flash-banner flash-success" data-testid="flash-banner">
+    Profile <strong>{{ active_profile_name }}</strong> activated — results below are scored with this profile.
+    <button type="button" class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+</div>
+{% endif %}
+
 {# ── Health status ─────────────────────────────────────────── #}
 <div class="status-bar" data-testid="health-status">
     {% if health_ok %}
     <span class="status-dot ok"></span>
     <span class="status-text">Backend healthy</span>
     <span class="status-detail">v{{ health_version }}</span>
+    {% if active_profile_name %}
+    <span class="status-detail">| Profile: <a href="/dashboard/profiles">{{ active_profile_name }}</a></span>
+    {% else %}
+    <span class="status-detail">| <a href="/dashboard/profiles">No profile active</a></span>
+    {% endif %}
+    <span class="status-detail">| Collector: <span class="collector-badge collector-{{ collector_info.type }}">{{ collector_info.label }}</span></span>
     {% else %}
     <span class="status-dot error"></span>
     <span class="status-text">Backend unreachable</span>
     <span class="status-detail">{{ health_error }}</span>
     {% endif %}
 </div>
+
+{# ── Collector sources panel ──────────────────────────────── #}
+<details class="collectors-panel" data-testid="collectors-panel">
+    <summary class="collectors-summary">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        Active Sources <span class="count-badge">({{ collector_info.sources | length }})</span>
+    </summary>
+    <div class="collectors-grid">
+        {% for src in collector_info.sources %}
+        <div class="collector-source-item">
+            <span class="collector-dot collector-{% if src.startswith('greenhouse:') %}greenhouse{% elif src.startswith('lever:') %}lever{% elif 'ashby' in src %}ashby{% else %}{{ collector_info.type }}{% endif %}"></span>
+            <span class="collector-source-name">{{ src }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="collectors-available">
+        <span class="collectors-label">Available collectors:</span>
+        {% for c in available_collectors %}
+        <span class="collector-chip {% if c.name in collector_info.active_types %}collector-chip-active{% endif %}">{{ c.label }}</span>
+        {% endfor %}
+    </div>
+</details>
 
 {# ── Toolbar: search + filters + view toggle ───────────────── #}
 <div class="toolbar" data-testid="toolbar">
@@ -123,6 +159,15 @@
                     data-score-location="{{ sj.score.location_match }}"
                     data-score-skills="{{ sj.score.skills_match }}"
                     data-explanation="{{ sj.score.explanation | e }}"
+                    data-dim-title="{{ sj.score.dimension_scores.get('title', 0) }}"
+                    data-dim-seniority="{{ sj.score.dimension_scores.get('seniority', 0) }}"
+                    data-dim-industry="{{ sj.score.dimension_scores.get('industry', 0) }}"
+                    data-dim-scope="{{ sj.score.dimension_scores.get('scope', 0) }}"
+                    data-dim-geography="{{ sj.score.dimension_scores.get('geography', 0) }}"
+                    data-dim-kw="{{ sj.score.dimension_scores.get('keyword_clusters', 0) }}"
+                    data-why-matched="{{ sj.score.why_matched | join('||') | e }}"
+                    data-why-penalized="{{ sj.score.why_penalized | join('||') | e }}"
+                    data-red-flags="{{ sj.score.red_flags | join('||') | e }}"
                 >
                     {# Actions #}
                     <td class="col-actions">
@@ -231,12 +276,21 @@
                     <div class="score-ring" id="detail-score-ring"><span id="detail-score-pct"></span></div>
                 </div>
                 <div class="score-dimensions">
-                    <div class="dim-row"><span class="dim-label">Title</span><div class="dim-bar"><div class="dim-fill" id="dim-title"></div></div></div>
-                    <div class="dim-row"><span class="dim-label">Seniority</span><div class="dim-bar"><div class="dim-fill" id="dim-seniority"></div></div></div>
-                    <div class="dim-row"><span class="dim-label">Location</span><div class="dim-bar"><div class="dim-fill" id="dim-location"></div></div></div>
-                    <div class="dim-row"><span class="dim-label">Skills</span><div class="dim-bar"><div class="dim-fill" id="dim-skills"></div></div></div>
+                    <div class="dim-row"><span class="dim-label">Title</span><div class="dim-bar"><div class="dim-fill" id="dim-title"></div></div><span class="dim-pct" id="dim-title-pct"></span></div>
+                    <div class="dim-row"><span class="dim-label">Seniority</span><div class="dim-bar"><div class="dim-fill" id="dim-seniority"></div></div><span class="dim-pct" id="dim-seniority-pct"></span></div>
+                    <div class="dim-row"><span class="dim-label">Industry</span><div class="dim-bar"><div class="dim-fill dim-fill-industry" id="dim-industry"></div></div><span class="dim-pct" id="dim-industry-pct"></span></div>
+                    <div class="dim-row"><span class="dim-label">Scope</span><div class="dim-bar"><div class="dim-fill dim-fill-scope" id="dim-scope"></div></div><span class="dim-pct" id="dim-scope-pct"></span></div>
+                    <div class="dim-row"><span class="dim-label">Geography</span><div class="dim-bar"><div class="dim-fill" id="dim-geography"></div></div><span class="dim-pct" id="dim-geography-pct"></span></div>
+                    <div class="dim-row"><span class="dim-label">Keywords</span><div class="dim-bar"><div class="dim-fill dim-fill-kw" id="dim-kw"></div></div><span class="dim-pct" id="dim-kw-pct"></span></div>
                 </div>
             </div>
+
+            <div id="detail-why-section" class="detail-why-section" style="display:none">
+                <div id="detail-why-matched" class="why-group why-matched-group"></div>
+                <div id="detail-why-penalized" class="why-group why-penalized-group"></div>
+                <div id="detail-red-flags" class="why-group why-red-flags-group"></div>
+            </div>
+
             <p class="score-explanation" id="detail-explanation"></p>
         </div>
 
@@ -263,5 +317,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="/dashboard/static/app.js"></script>
+<script src="/dashboard/static/app.js?v={{ static_version }}"></script>
 {% endblock %}

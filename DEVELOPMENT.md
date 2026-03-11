@@ -88,7 +88,10 @@ exec-radar/
 │   ├── collectors/
 │   │   ├── base.py              # BaseCollector ABC
 │   │   ├── mock_collector.py    # Sample data
-│   │   └── greenhouse_collector.py  # Greenhouse Boards API
+│   │   ├── greenhouse_collector.py  # Greenhouse Boards API
+│   │   ├── lever_collector.py       # Lever Postings API
+│   │   ├── ashby_collector.py       # Ashby career pages (window.__appData)
+│   │   └── composite_collector.py   # Parallel multi-board aggregator
 │   │
 │   ├── normalizers/
 │   │   ├── base.py              # BaseNormalizer ABC
@@ -143,8 +146,8 @@ exec-radar/
 ```
 User/API
    ↓
-[Collector]  (e.g., GreenhouseCollector)
-   ↓ HTTP GET → Greenhouse API → RawJobPosting list
+[Collector]  (e.g., GreenhouseCollector, LeverCollector, AshbyCollector)
+   ↓ HTTP GET → ATS API / career page → RawJobPosting list
 [Normalizer] (SimpleNormalizer)
    ↓ Parse HTML, extract seniority/location → NormalizedJobPosting list
 [Ranker]     (RuleBasedRanker)
@@ -172,6 +175,9 @@ class BaseCollector(ABC):
 Implementations:
 - `MockCollector` — 5 sample postings
 - `GreenhouseCollector` — Real jobs from Greenhouse Boards API
+- `LeverCollector` — Real jobs from Lever Postings API
+- `AshbyCollector` — Real jobs from Ashby career pages
+- `CompositeCollector` — Parallel aggregation of multiple collectors
 
 **BaseNormalizer**
 ```python

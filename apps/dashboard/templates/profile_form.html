@@ -26,6 +26,15 @@
             <textarea id="description" name="description" rows="2" maxlength="2000"
                       placeholder="A short description of this profile">{{ profile.description if profile else '' }}</textarea>
         </div>
+        <div class="form-group">
+            <label for="preferred_source_set">Source Set <span class="hint">(Greenhouse board collection)</span></label>
+            <select id="preferred_source_set" name="preferred_source_set">
+                <option value="">Default boards</option>
+                {% for ss in source_set_names|default([]) %}
+                <option value="{{ ss }}" {% if profile and profile.data and profile.data.get('preferred_source_set') == ss %}selected{% endif %}>{{ ss | replace('_',' ') | title }}</option>
+                {% endfor %}
+            </select>
+        </div>
     </fieldset>
 
     <fieldset>
@@ -51,6 +60,37 @@
     </fieldset>
 
     <fieldset>
+        <legend>Seniority &amp; Remote Preferences</legend>
+        <div class="form-group">
+            <label>Target Seniority</label>
+            <div class="checkbox-group">
+                {% set sen_vals = profile.data.get('target_seniority', ['c_level','svp','vp']) if profile and profile.data else ['c_level','svp','vp'] %}
+                {% for s in ['c_level','svp','vp','director','head','other'] %}
+                <label class="checkbox-label"><input type="checkbox" name="target_seniority" value="{{ s }}" {% if s in sen_vals %}checked{% endif %} /> {{ s | replace('_',' ') | title }}</label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Acceptable Seniority</label>
+            <div class="checkbox-group">
+                {% set acc_vals = profile.data.get('acceptable_seniority', ['director','head']) if profile and profile.data else ['director','head'] %}
+                {% for s in ['c_level','svp','vp','director','head','other'] %}
+                <label class="checkbox-label"><input type="checkbox" name="acceptable_seniority" value="{{ s }}" {% if s in acc_vals %}checked{% endif %} /> {{ s | replace('_',' ') | title }}</label>
+                {% endfor %}
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Preferred Remote Policies</label>
+            <div class="checkbox-group">
+                {% set rem_vals = profile.data.get('preferred_remote_policies', ['remote','hybrid']) if profile and profile.data else ['remote','hybrid'] %}
+                {% for r in ['remote','hybrid','onsite'] %}
+                <label class="checkbox-label"><input type="checkbox" name="preferred_remote_policies" value="{{ r }}" {% if r in rem_vals %}checked{% endif %} /> {{ r | title }}</label>
+                {% endfor %}
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
         <legend>Industry Preferences</legend>
         <div class="form-group">
             <label for="target_industries">Target Industries <span class="hint">(one per line)</span></label>
@@ -62,6 +102,22 @@
             <label for="adjacent_industries">Adjacent Industries <span class="hint">(one per line)</span></label>
             <textarea id="adjacent_industries" name="adjacent_industries" rows="3"
                       placeholder="energy&#10;chemicals">{% if profile and profile.data %}{% for t in profile.data.get('adjacent_industries', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>Company Preferences</legend>
+        <div class="form-group">
+            <label for="preferred_companies">Preferred Companies <span class="hint">(one per line)</span></label>
+            <textarea id="preferred_companies" name="preferred_companies" rows="2"
+                      placeholder="TSMC&#10;Intel">{% if profile and profile.data %}{% for t in profile.data.get('preferred_companies', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="excluded_companies">Excluded Companies <span class="hint">(one per line)</span></label>
+            <textarea id="excluded_companies" name="excluded_companies" rows="2"
+                      placeholder="">{% if profile and profile.data %}{% for t in profile.data.get('excluded_companies', []) %}{{ t }}
 {% endfor %}{% endif %}</textarea>
         </div>
     </fieldset>
@@ -92,6 +148,18 @@
                       placeholder="internship&#10;unpaid">{% if profile and profile.data %}{% for t in profile.data.get('excluded_keywords', []) %}{{ t }}
 {% endfor %}{% endif %}</textarea>
         </div>
+        <div class="form-group">
+            <label for="required_keywords">Required Keywords <span class="hint">(legacy, one per line)</span></label>
+            <textarea id="required_keywords" name="required_keywords" rows="3"
+                      placeholder="operations&#10;manufacturing&#10;supply chain">{% if profile and profile.data %}{% for t in profile.data.get('required_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="preferred_keywords">Preferred Keywords <span class="hint">(legacy, one per line)</span></label>
+            <textarea id="preferred_keywords" name="preferred_keywords" rows="3"
+                      placeholder="semiconductor&#10;foundry">{% if profile and profile.data %}{% for t in profile.data.get('preferred_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
     </fieldset>
 
     <fieldset>
@@ -100,6 +168,12 @@
             <label for="preferred_scope_keywords">Scope Keywords <span class="hint">(one per line)</span></label>
             <textarea id="preferred_scope_keywords" name="preferred_scope_keywords" rows="3"
                       placeholder="global&#10;multi-site&#10;budget">{% if profile and profile.data %}{% for t in profile.data.get('preferred_scope_keywords', []) %}{{ t }}
+{% endfor %}{% endif %}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="target_locations">Target Locations <span class="hint">(one per line)</span></label>
+            <textarea id="target_locations" name="target_locations" rows="3"
+                      placeholder="Phoenix&#10;Toronto&#10;Grenoble">{% if profile and profile.data %}{% for t in profile.data.get('target_locations', []) %}{{ t }}
 {% endfor %}{% endif %}</textarea>
         </div>
         <div class="form-group">

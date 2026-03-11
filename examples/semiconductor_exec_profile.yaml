@@ -1,0 +1,121 @@
+# Semiconductor Executive Profile  —  Exec Radar
+#
+# Tuned for VP/SVP/COO-level operations roles at semiconductor companies.
+# Pairs with the 'semiconductor_exec' source set.
+
+preferred_source_set: semiconductor_exec
+
+# ── Title preferences ─────────────────────────────────────────────────
+target_titles:
+  - chief operating officer
+  - coo
+  - vp of operations
+  - vice president of operations
+  - svp operations
+  - head of operations
+
+adjacent_titles:
+  - vp manufacturing
+  - vice president manufacturing
+  - svp manufacturing
+  - head of manufacturing
+  - vp supply chain
+  - head of supply chain
+  - vp industrial operations
+  - general manager operations
+  - vp operational excellence
+
+excluded_titles:
+  - intern
+  - junior
+  - entry level
+  - associate
+  - assistant
+
+# ── Seniority ─────────────────────────────────────────────────────────
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+acceptable_seniority:
+  - director
+  - head
+
+# ── Location / remote ────────────────────────────────────────────────
+preferred_remote_policies:
+  - remote
+  - hybrid
+
+target_geographies:
+  - france
+  - germany
+  - switzerland
+  - europe
+  - united states
+  - usa
+
+# ── Industry ──────────────────────────────────────────────────────────
+target_industries:
+  - semiconductor
+  - electronics
+  - automotive
+  - advanced manufacturing
+
+adjacent_industries:
+  - aerospace
+  - defense
+  - medical devices
+
+# ── Keywords ──────────────────────────────────────────────────────────
+must_have_keywords:
+  - operations
+  - manufacturing
+  - semiconductor
+
+strong_keywords:
+  - supply chain
+  - "P&L"
+  - transformation
+  - foundry
+  - osat
+  - backend operations
+  - npi
+  - ramp
+  - quality
+  - industrialization
+  - lean
+  - six sigma
+
+nice_to_have_keywords:
+  - global operations
+  - multi-site
+  - business unit
+  - wafer fab
+  - yield
+  - ERP
+  - capex
+
+excluded_keywords:
+  - entry level
+  - unpaid
+  - internship
+
+# ── Scope ─────────────────────────────────────────────────────────────
+preferred_scope_keywords:
+  - global
+  - multi-site
+  - regional
+  - international
+  - "p&l responsibility"
+  - budget
+  - headcount
+  - direct reports
+
+# ── Scoring weights ──────────────────────────────────────────────────
+weight_title: 0.25
+weight_seniority: 0.15
+weight_industry: 0.15
+weight_scope: 0.10
+weight_geography: 0.10
+weight_keyword_clusters: 0.25

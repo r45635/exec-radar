@@ -1,0 +1,187 @@
+name: vincent_deeptech_mems_photonics_ops
+description: Executive and senior operations profile for deeptech hardware, MEMS, photonics, industrial scale-up, and advanced manufacturing environments.
+preferred_source_set: deeptech_hardware
+
+target_titles:
+  - chief operating officer
+  - coo
+  - vp operations
+  - vice president operations
+  - vp manufacturing
+  - vice president manufacturing
+  - vp industrial operations
+  - head of operations
+  - general manager
+  - industrial director
+  - head of manufacturing
+
+adjacent_titles:
+  - senior director operations
+  - senior director manufacturing
+  - head of supply chain
+  - site leader
+  - vp supply chain
+  - vice president supply chain
+  - vp quality
+  - vice president quality
+  - operations director
+
+excluded_titles:
+  - intern
+  - junior
+  - associate
+  - assistant
+  - recruiter
+  - account executive
+  - sales director
+  - customer success
+  - frontend developer
+  - software engineer
+  - full stack engineer
+  - product designer
+  - marketing manager
+
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+acceptable_seniority:
+  - director
+  - head
+
+preferred_remote_policies:
+  - remote
+  - hybrid
+  - onsite
+
+target_locations:
+  - Toronto
+  - Ottawa
+  - Grenoble
+  - Paris
+  - Leuven
+  - Eindhoven
+  - Amsterdam
+  - Munich
+  - Phoenix
+  - Chandler
+
+target_geographies:
+  - canada
+  - france
+  - netherlands
+  - belgium
+  - germany
+  - europe
+  - united states
+  - usa
+
+target_industries:
+  - mems
+  - photonics
+  - deeptech hardware
+  - industrial electronics
+  - semiconductor
+  - semiconductors
+  - advanced manufacturing
+  - power electronics
+
+adjacent_industries:
+  - medical devices
+  - robotics hardware
+  - aerospace hardware
+  - advanced sensors
+  - quantum hardware
+  - electronics manufacturing services
+
+preferred_companies: []
+
+excluded_companies: []
+
+must_have_keywords:
+  - operations
+  - manufacturing
+  - industrialization
+
+strong_keywords:
+  - mems
+  - photonics
+  - semiconductor
+  - advanced manufacturing
+  - industrialization
+  - npi
+  - ramp
+  - supply chain
+  - manufacturing
+  - quality
+  - global
+  - multi-site
+  - reliability
+  - yield
+  - automation
+  - process transfer
+  - scale-up
+  - operations excellence
+  - sourcing
+  - procurement
+
+nice_to_have_keywords:
+  - fd-soi
+  - ppap
+  - apqp
+  - fmea
+  - iatf 16949
+  - iso 26262
+  - lean
+  - six sigma
+  - foundry
+  - osat
+  - packaging
+  - test
+  - assembly
+
+excluded_keywords:
+  - saas
+  - growth marketing
+  - customer success
+  - revenue operations
+  - frontend
+  - full stack
+  - pure software
+  - adtech
+  - martech
+
+preferred_scope_keywords:
+  - global operations
+  - multi-site
+  - industrialization
+  - manufacturing operations
+  - supply chain leadership
+  - scale-up
+  - quality systems
+  - operational excellence
+  - cross-functional leadership
+  - budget responsibility
+  - manufacturing footprint
+
+required_keywords:
+  - operations
+  - manufacturing
+
+preferred_keywords:
+  - mems
+  - photonics
+  - industrialization
+  - supply chain
+  - quality
+  - scale-up
+  - global
+  - multi-site
+
+weight_title: 0.23
+weight_seniority: 0.13
+weight_industry: 0.20
+weight_scope: 0.16
+weight_geography: 0.08
+weight_keyword_clusters: 0.20

@@ -10,6 +10,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
@@ -24,10 +26,12 @@ from packages.db.profile_repository import (
     activate_profile,
     create_profile,
     export_profile_to_yaml,
+    get_active_profile,
     get_profile_by_id,
     import_profile_from_yaml,
     list_profiles,
     resolve_active_target_profile,
+    seed_profiles_from_directory,
     suspend_profile,
     unsuspend_profile,
     update_profile,
@@ -35,21 +39,59 @@ from packages.db.profile_repository import (
 from packages.db.profile_session import get_session as _profiles_session
 from packages.pipeline import run_pipeline
 from packages.schemas.target_profile import TargetProfile
-from packages.services import build_pipeline_components
+from packages.services import (
+    AVAILABLE_COLLECTORS,
+    build_pipeline_components,
+    describe_collector,
+)
+from packages.source_sets import source_set_names
 from packages.version import __version__
 
 logger = logging.getLogger(__name__)
 
 _DIR = Path(__file__).resolve().parent
+
+
+def _static_hash() -> str:
+    """Return a short hash of the static assets for cache-busting."""
+    import hashlib
+
+    h = hashlib.md5(usedforsecurity=False)
+    for name in ("app.js", "style.css"):
+        p = _DIR / "static" / name
+        if p.exists():
+            h.update(p.read_bytes())
+    return h.hexdigest()[:8]
+
+
+_STATIC_VERSION = _static_hash()
 _PREFS_DB_PATH = Path(
     os.getenv("EXEC_RADAR_DASHBOARD_PREFS_DB", ".data/dashboard_preferences.sqlite3")
 )
+
+# Project root for locating example profiles
+_PROJECT_ROOT = _DIR.parent.parent
+_EXAMPLES_DIR = _PROJECT_ROOT / "examples"
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Seed example profiles into the DB on startup if missing."""
+    session = await _profiles_session()
+    async with session:
+        count = await seed_profiles_from_directory(session, _EXAMPLES_DIR)
+        if count:
+            await session.commit()
+            logger.info("Auto-seeded %d profile(s) from %s", count, _EXAMPLES_DIR)
+    yield
+
 
 dashboard_app = FastAPI(
     title="Exec Radar Dashboard",
     docs_url=None,
     redoc_url=None,
     openapi_url=None,
+    lifespan=_lifespan,
 )
 
 dashboard_app.mount(
@@ -59,6 +101,7 @@ dashboard_app.mount(
 )
 
 templates = Jinja2Templates(directory=_DIR / "templates")
+templates.env.globals["static_version"] = _STATIC_VERSION
 preferences_store = PreferenceStore(_PREFS_DB_PATH)
 
 
@@ -133,13 +176,19 @@ async def index(request: Request) -> HTMLResponse:
     # ── Jobs ───────────────────────────────────────────────
     jobs: list = []
     jobs_error = ""
+    active_profile_name: str | None = None
+    collector_info: dict = {"type": "mock", "label": "Mock", "sources": ["mock"]}
     try:
         session = await _profiles_session()
         async with session:
+            active_record = await get_active_profile(session)
             active_profile = await resolve_active_target_profile(session)
+            if active_record is not None:
+                active_profile_name = active_record.name
         collector, normalizer, ranker = build_pipeline_components(
             profile=active_profile,
         )
+        collector_info = describe_collector(collector)
         jobs = await run_pipeline(
             collector=collector,
             normalizer=normalizer,
@@ -148,6 +197,8 @@ async def index(request: Request) -> HTMLResponse:
     except Exception as exc:
         logger.exception("Dashboard: failed to load jobs")
         jobs_error = str(exc)
+
+    profile_activated = request.query_params.get("profile_activated") == "1"
 
     return templates.TemplateResponse(
         request,
@@ -160,6 +211,10 @@ async def index(request: Request) -> HTMLResponse:
             "jobs": jobs,
             "job_count": len(jobs),
             "jobs_error": jobs_error,
+            "active_profile_name": active_profile_name,
+            "profile_activated": profile_activated,
+            "collector_info": collector_info,
+            "available_collectors": AVAILABLE_COLLECTORS,
         },
     )
 
@@ -225,7 +280,13 @@ async def profiles_new_form(request: Request) -> HTMLResponse:
     return templates.TemplateResponse(
         request,
         "profile_form.html",
-        {"version": __version__, "mode": "create", "profile": None, "error": ""},
+        {
+            "version": __version__,
+            "mode": "create",
+            "profile": None,
+            "error": "",
+            "source_set_names": source_set_names(),
+        },
     )
 
 
@@ -234,16 +295,25 @@ async def profiles_create(
     request: Request,
     name: str = Form(...),
     description: str = Form(""),
+    preferred_source_set: str = Form(""),
     target_titles: str = Form(""),
     adjacent_titles: str = Form(""),
     excluded_titles: str = Form(""),
+    target_seniority: list[str] | None = Form(None),
+    acceptable_seniority: list[str] | None = Form(None),
+    preferred_remote_policies: list[str] | None = Form(None),
     target_industries: str = Form(""),
     adjacent_industries: str = Form(""),
+    preferred_companies: str = Form(""),
+    excluded_companies: str = Form(""),
     must_have_keywords: str = Form(""),
     strong_keywords: str = Form(""),
     nice_to_have_keywords: str = Form(""),
     excluded_keywords: str = Form(""),
+    required_keywords: str = Form(""),
+    preferred_keywords: str = Form(""),
     preferred_scope_keywords: str = Form(""),
+    target_locations: str = Form(""),
     target_geographies: str = Form(""),
     weight_title: float = Form(0.25),
     weight_seniority: float = Form(0.15),
@@ -259,16 +329,25 @@ async def profiles_create(
 
     try:
         profile_data = TargetProfile(
+            preferred_source_set=preferred_source_set.strip(),
             target_titles=frozenset(_split(target_titles)),
             adjacent_titles=frozenset(_split(adjacent_titles)),
             excluded_titles=frozenset(_split(excluded_titles)),
+            target_seniority=frozenset(target_seniority or []),
+            acceptable_seniority=frozenset(acceptable_seniority or []),
+            preferred_remote_policies=frozenset(preferred_remote_policies or []),
             target_industries=frozenset(_split(target_industries)),
             adjacent_industries=frozenset(_split(adjacent_industries)),
+            preferred_companies=frozenset(_split(preferred_companies)),
+            excluded_companies=frozenset(_split(excluded_companies)),
             must_have_keywords=frozenset(_split(must_have_keywords)),
             strong_keywords=frozenset(_split(strong_keywords)),
             nice_to_have_keywords=frozenset(_split(nice_to_have_keywords)),
             excluded_keywords=frozenset(_split(excluded_keywords)),
+            required_keywords=frozenset(_split(required_keywords)),
+            preferred_keywords=frozenset(_split(preferred_keywords)),
             preferred_scope_keywords=frozenset(_split(preferred_scope_keywords)),
+            target_locations=frozenset(_split(target_locations)),
             target_geographies=frozenset(_split(target_geographies)),
             weight_title=weight_title,
             weight_seniority=weight_seniority,
@@ -286,6 +365,7 @@ async def profiles_create(
                 "mode": "create",
                 "profile": None,
                 "error": str(exc),
+                "source_set_names": source_set_names(),
             },
             status_code=422,
         )
@@ -310,6 +390,7 @@ async def profiles_create(
                     "mode": "create",
                     "profile": None,
                     "error": str(exc),
+                    "source_set_names": source_set_names(),
                 },
                 status_code=409,
             )
@@ -349,6 +430,7 @@ async def profiles_edit_form(
             "mode": "edit",
             "profile": profile_ctx,
             "error": "",
+            "source_set_names": source_set_names(),
         },
     )
 
@@ -361,16 +443,25 @@ async def profiles_update(
     profile_id: str,
     name: str = Form(...),
     description: str = Form(""),
+    preferred_source_set: str = Form(""),
     target_titles: str = Form(""),
     adjacent_titles: str = Form(""),
     excluded_titles: str = Form(""),
+    target_seniority: list[str] | None = Form(None),
+    acceptable_seniority: list[str] | None = Form(None),
+    preferred_remote_policies: list[str] | None = Form(None),
     target_industries: str = Form(""),
     adjacent_industries: str = Form(""),
+    preferred_companies: str = Form(""),
+    excluded_companies: str = Form(""),
     must_have_keywords: str = Form(""),
     strong_keywords: str = Form(""),
     nice_to_have_keywords: str = Form(""),
     excluded_keywords: str = Form(""),
+    required_keywords: str = Form(""),
+    preferred_keywords: str = Form(""),
     preferred_scope_keywords: str = Form(""),
+    target_locations: str = Form(""),
     target_geographies: str = Form(""),
     weight_title: float = Form(0.25),
     weight_seniority: float = Form(0.15),
@@ -386,16 +477,25 @@ async def profiles_update(
 
     try:
         profile_data = TargetProfile(
+            preferred_source_set=preferred_source_set.strip(),
             target_titles=frozenset(_split(target_titles)),
             adjacent_titles=frozenset(_split(adjacent_titles)),
             excluded_titles=frozenset(_split(excluded_titles)),
+            target_seniority=frozenset(target_seniority or []),
+            acceptable_seniority=frozenset(acceptable_seniority or []),
+            preferred_remote_policies=frozenset(preferred_remote_policies or []),
             target_industries=frozenset(_split(target_industries)),
             adjacent_industries=frozenset(_split(adjacent_industries)),
+            preferred_companies=frozenset(_split(preferred_companies)),
+            excluded_companies=frozenset(_split(excluded_companies)),
             must_have_keywords=frozenset(_split(must_have_keywords)),
             strong_keywords=frozenset(_split(strong_keywords)),
             nice_to_have_keywords=frozenset(_split(nice_to_have_keywords)),
             excluded_keywords=frozenset(_split(excluded_keywords)),
+            required_keywords=frozenset(_split(required_keywords)),
+            preferred_keywords=frozenset(_split(preferred_keywords)),
             preferred_scope_keywords=frozenset(_split(preferred_scope_keywords)),
+            target_locations=frozenset(_split(target_locations)),
             target_geographies=frozenset(_split(target_geographies)),
             weight_title=weight_title,
             weight_seniority=weight_seniority,
@@ -413,6 +513,7 @@ async def profiles_update(
                 "mode": "edit",
                 "profile": {"id": profile_id, "name": name, "description": description},
                 "error": str(exc),
+                "source_set_names": source_set_names(),
             },
             status_code=422,
         )
@@ -444,8 +545,8 @@ async def profiles_activate(profile_id: str) -> RedirectResponse:
             await activate_profile(session, profile_id)
             await session.commit()
         except ValueError:
-            pass  # redirect anyway; error shown via status
-    return RedirectResponse("/dashboard/profiles", status_code=303)
+            return RedirectResponse("/dashboard/profiles", status_code=303)
+    return RedirectResponse("/dashboard/?profile_activated=1", status_code=303)
 
 
 @dashboard_app.post("/profiles/{profile_id}/suspend")
@@ -598,3 +699,115 @@ async def profiles_upload(
             )
 
     return RedirectResponse("/dashboard/profiles", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Multi-profile comparison
+# ---------------------------------------------------------------------------
+
+
+@dashboard_app.get("/compare", response_class=HTMLResponse)
+async def compare_profiles(request: Request) -> HTMLResponse:
+    """Render comparison page — pick two profiles, see score differences."""
+    session = await _profiles_session()
+    async with session:
+        records = await list_profiles(session)
+        profiles_meta = [
+            {"id": r.id, "name": r.name, "is_active": r.is_active}
+            for r in records
+            if not r.is_suspended
+        ]
+
+    return templates.TemplateResponse(
+        request,
+        "compare.html",
+        {
+            "version": __version__,
+            "profiles": profiles_meta,
+            "results": None,
+            "error": "",
+        },
+    )
+
+
+@dashboard_app.post("/compare", response_class=HTMLResponse)
+async def compare_profiles_run(
+    request: Request,
+    profile_a: str = Form(...),
+    profile_b: str = Form(...),
+    max_jobs: int = Form(30),
+) -> HTMLResponse:
+    """Run the same jobs through two profiles and show side-by-side scores."""
+    from packages.db.profile_repository import _json_to_profile
+    from packages.rankers.rule_based_ranker import RuleBasedRanker
+
+    session = await _profiles_session()
+    async with session:
+        records = await list_profiles(session)
+        profiles_meta = [
+            {"id": r.id, "name": r.name, "is_active": r.is_active}
+            for r in records
+            if not r.is_suspended
+        ]
+
+        rec_a = await get_profile_by_id(session, profile_a)
+        rec_b = await get_profile_by_id(session, profile_b)
+
+    if rec_a is None or rec_b is None:
+        return templates.TemplateResponse(
+            request,
+            "compare.html",
+            {
+                "version": __version__,
+                "profiles": profiles_meta,
+                "results": None,
+                "error": "One or both profiles not found.",
+            },
+        )
+
+    tp_a = _json_to_profile(rec_a.profile_data_json)
+    tp_b = _json_to_profile(rec_b.profile_data_json)
+
+    # Collect jobs once with profile A's source set
+    collector_a, normalizer, ranker_a = build_pipeline_components(profile=tp_a)
+    raw_postings = await collector_a.collect()
+    normalized = [normalizer.normalize(raw) for raw in raw_postings]
+
+    # Score with both profiles
+    ranker_b = RuleBasedRanker(profile=tp_b)
+    scores_a = {s.job_id: s for s in ranker_a.score_batch(normalized)}
+    scores_b = {s.job_id: s for s in ranker_b.score_batch(normalized)}
+
+    rows = []
+    for job in normalized:
+        sa = scores_a.get(job.id)
+        sb = scores_b.get(job.id)
+        if sa and sb:
+            rows.append({
+                "title": job.title,
+                "company": job.company or "",
+                "location": job.location or "",
+                "score_a": round(sa.overall, 4),
+                "score_b": round(sb.overall, 4),
+                "delta": round(sa.overall - sb.overall, 4),
+                "dims_a": sa.dimension_scores,
+                "dims_b": sb.dimension_scores,
+            })
+
+    rows.sort(key=lambda r: abs(r["delta"]), reverse=True)
+    rows = rows[:max_jobs]
+
+    return templates.TemplateResponse(
+        request,
+        "compare.html",
+        {
+            "version": __version__,
+            "profiles": profiles_meta,
+            "results": rows,
+            "name_a": rec_a.name,
+            "name_b": rec_b.name,
+            "selected_a": profile_a,
+            "selected_b": profile_b,
+            "error": "",
+        },
+    )

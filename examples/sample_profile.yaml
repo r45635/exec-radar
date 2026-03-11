@@ -17,7 +17,14 @@
 #
 # Post-scoring penalties are applied for software-heavy, GTM/business-only,
 # misleading ops titles (no industrial evidence), too-junior roles,
-# and narrow single-site/plant scope when executive scope is expected.
+# narrow single-site/plant scope (×0.50), and geography mismatch.
+# Exec semiconductor bonus (rule 7): ≥4 exec-semi signals → ×1.15; ≥2 → ×1.08.
+
+# ── Source set preference ─────────────────────────────────────────────
+# Optional: reference a named source set to control which Greenhouse
+# boards are scanned.  Available: semiconductor_exec, deeptech_hardware,
+# broad_exec_ops.  Leave empty to use default boards.
+# preferred_source_set: semiconductor_exec
 
 # ── Title preferences ─────────────────────────────────────────────────
 # Case-insensitive.  An exact match on a target title scores 1.0;

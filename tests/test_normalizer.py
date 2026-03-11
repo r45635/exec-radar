@@ -104,6 +104,34 @@ class TestSimpleNormalizer:
         assert "supply chain" in result.tags
         assert "logistics" in result.tags
 
+    def test_scope_signal_tags(self, normalizer: SimpleNormalizer) -> None:
+        """Scope signals should be extracted as tags."""
+        result = normalizer.normalize(
+            _raw(
+                title="VP Global Operations",
+                description=(
+                    "Lead multi-site manufacturing across business unit. "
+                    "Enterprise-wide transformation."
+                ),
+            )
+        )
+        assert "global" in result.tags
+        assert "multi-site" in result.tags
+        assert "business unit" in result.tags
+        assert "enterprise-wide" in result.tags
+
+    def test_site_scope_tag(self, normalizer: SimpleNormalizer) -> None:
+        """Narrow site-level scope should be tagged."""
+        result = normalizer.normalize(
+            _raw(
+                title="Plant Director",
+                description="Manage single site operations at the plant.",
+            )
+        )
+        assert "site" in result.tags
+        assert "plant" in result.tags
+        assert "single site" in result.tags
+
     def test_html_stripping(self, normalizer: SimpleNormalizer) -> None:
         """HTML tags should be removed from description."""
         result = normalizer.normalize(_raw(description="<p>Great <b>role</b> for leaders.</p>"))

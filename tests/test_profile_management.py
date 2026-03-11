@@ -31,7 +31,7 @@ from packages.db.profile_repository import (
     unsuspend_profile,
     update_profile,
 )
-from packages.db.profile_session import reset_for_tests
+from packages.db.profile_session import restore_real_database, use_test_database
 from packages.schemas.target_profile import TargetProfile
 
 # ---------------------------------------------------------------------------
@@ -55,11 +55,15 @@ async def db_session():
 
 @pytest.fixture()
 async def api_client():
-    """Yield an async HTTP test client bound to the FastAPI app."""
-    await reset_for_tests()
+    """Yield an async HTTP test client bound to the FastAPI app.
+
+    Uses an in-memory database so the real profiles DB is never touched.
+    """
+    await use_test_database()
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+    await restore_real_database()
 
 
 # ---------------------------------------------------------------------------

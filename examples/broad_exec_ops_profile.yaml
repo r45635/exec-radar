@@ -1,0 +1,132 @@
+# Broad Executive Ops Profile  —  Exec Radar
+#
+# Casts a wider net across deep-tech, mobility, and healthcare
+# operations leadership.  Pairs with the 'broad_exec_ops' source set.
+
+preferred_source_set: broad_exec_ops
+
+# ── Title preferences ─────────────────────────────────────────────────
+target_titles:
+  - chief operating officer
+  - coo
+  - vp of operations
+  - vice president of operations
+  - svp operations
+  - head of operations
+  - director of operations
+  - head of business transformation
+
+adjacent_titles:
+  - vp manufacturing
+  - svp manufacturing
+  - head of manufacturing
+  - vp supply chain
+  - head of supply chain
+  - vp industrial operations
+  - head of industrial operations
+  - plant director
+  - general manager operations
+  - vp operational excellence
+  - head of operational excellence
+
+excluded_titles:
+  - intern
+  - junior
+  - entry level
+  - associate
+  - assistant
+
+# ── Seniority ─────────────────────────────────────────────────────────
+target_seniority:
+  - c_level
+  - svp
+  - vp
+
+acceptable_seniority:
+  - director
+  - head
+
+# ── Location / remote ────────────────────────────────────────────────
+preferred_remote_policies:
+  - remote
+  - hybrid
+
+target_geographies:
+  - france
+  - germany
+  - switzerland
+  - europe
+  - united states
+  - usa
+
+# ── Industry ──────────────────────────────────────────────────────────
+target_industries:
+  - semiconductor
+  - electronics
+  - automotive
+  - industrial manufacturing
+  - advanced manufacturing
+  - aerospace
+  - healthcare
+
+adjacent_industries:
+  - energy
+  - chemicals
+  - defense
+  - medical devices
+  - heavy industry
+  - logistics
+  - robotics
+
+# ── Keywords ──────────────────────────────────────────────────────────
+must_have_keywords:
+  - operations
+  - manufacturing
+  - industrial
+
+strong_keywords:
+  - supply chain
+  - "P&L"
+  - transformation
+  - continuous improvement
+  - lean
+  - six sigma
+  - operational excellence
+  - quality
+  - production
+  - plant
+
+nice_to_have_keywords:
+  - change management
+  - strategy
+  - digital transformation
+  - ERP
+  - SAP
+  - capex
+  - scalability
+  - KPI
+  - OKR
+
+excluded_keywords:
+  - entry level
+  - unpaid
+  - internship
+
+# ── Scope ─────────────────────────────────────────────────────────────
+preferred_scope_keywords:
+  - global
+  - multi-site
+  - regional
+  - international
+  - "p&l responsibility"
+  - budget
+  - headcount
+  - direct reports
+
+# ── Scoring weights ──────────────────────────────────────────────────
+weight_title: 0.25
+weight_seniority: 0.15
+weight_industry: 0.15
+weight_scope: 0.10
+weight_geography: 0.10
+weight_keyword_clusters: 0.25

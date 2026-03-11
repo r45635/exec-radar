@@ -34,7 +34,7 @@ class KeywordCluster:
 CLUSTERS: tuple[KeywordCluster, ...] = (
     KeywordCluster(
         name="semiconductor_manufacturing",
-        weight=0.25,
+        weight=0.20,
         keywords=frozenset(
             {
                 "semiconductor",
@@ -62,7 +62,7 @@ CLUSTERS: tuple[KeywordCluster, ...] = (
     ),
     KeywordCluster(
         name="fabless_foundry_osat",
-        weight=0.25,
+        weight=0.20,
         keywords=frozenset(
             {
                 "fabless",
@@ -113,7 +113,7 @@ CLUSTERS: tuple[KeywordCluster, ...] = (
     ),
     KeywordCluster(
         name="executive_operations_leadership",
-        weight=0.20,
+        weight=0.15,
         keywords=frozenset(
             {
                 "operations",
@@ -165,6 +165,46 @@ CLUSTERS: tuple[KeywordCluster, ...] = (
                 "make or buy",
                 "capex",
                 "capacity planning",
+            }
+        ),
+    ),
+    KeywordCluster(
+        name="semiconductor_process",
+        weight=0.15,
+        keywords=frozenset(
+            {
+                "process engineering",
+                "process integration",
+                "process development",
+                "thin film",
+                "etch",
+                "cvd",
+                "pvd",
+                "cmp",
+                "lithography",
+                "photolithography",
+                "diffusion",
+                "implant",
+                "ion implantation",
+                "metrology",
+                "defect",
+                "defectivity",
+                "contamination",
+                "process control",
+                "spc",
+                "recipe",
+                "chamber",
+                "tool qualification",
+                "wafer fabrication",
+                "technology node",
+                "design rule",
+                "dram",
+                "nand",
+                "finfet",
+                "gaafet",
+                "gate-all-around",
+                "euvl",
+                "euv",
             }
         ),
     ),
