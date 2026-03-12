@@ -130,7 +130,7 @@ class TestBuildCollectorSelector:
             source_set="deeptech_hardware",
         )
         assert isinstance(c, CompositeCollector)
-        assert "groq" in c.source_name
+        assert "graphcore" in c.source_name
 
     def test_source_set_unknown_raises(self) -> None:
         """An unknown source_set should raise ValueError."""

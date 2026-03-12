@@ -60,13 +60,13 @@ class TestSourceSetRegistry:
         """deeptech_hardware should contain expected boards."""
         ss = get_source_set("deeptech_hardware")
         assert ss is not None
-        assert "groq" in ss.boards
+        assert "graphcore" in ss.boards
 
     def test_broad_exec_ops_boards(self) -> None:
         """broad_exec_ops should contain expected boards."""
         ss = get_source_set("broad_exec_ops")
         assert ss is not None
-        assert "rivian" in ss.boards
+        assert "andurilindustries" in ss.boards
 
     def test_source_set_has_description(self) -> None:
         """Every source set should have a non-empty description."""
