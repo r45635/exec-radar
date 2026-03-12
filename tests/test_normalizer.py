@@ -144,3 +144,118 @@ class TestSimpleNormalizer:
         result = normalizer.normalize(raw)
         assert result.source == raw.source
         assert result.source_id == raw.source_id
+
+
+class TestExtendedNormalization:
+    """Tests for newly added normalization fields."""
+
+    def test_title_family_coo(self, normalizer: SimpleNormalizer) -> None:
+        """COO should resolve to COO title family."""
+        result = normalizer.normalize(_raw(title="Chief Operating Officer"))
+        assert result.title_family == "COO"
+
+    def test_title_family_vp_operations(self, normalizer: SimpleNormalizer) -> None:
+        """VP Operations should resolve to VP_OPERATIONS family."""
+        result = normalizer.normalize(_raw(title="VP of Operations"))
+        assert result.title_family == "VP_OPERATIONS"
+
+    def test_title_family_none_for_unknown(self, normalizer: SimpleNormalizer) -> None:
+        """Unknown title should have no family."""
+        result = normalizer.normalize(_raw(title="Software Engineer"))
+        assert result.title_family is None
+
+    def test_industry_family_semiconductor(self, normalizer: SimpleNormalizer) -> None:
+        """Descriptions with semiconductor signals should be classified."""
+        result = normalizer.normalize(
+            _raw(description="Manage wafer fab and foundry operations for semiconductor devices.")
+        )
+        assert result.industry_family == "semiconductor"
+
+    def test_industry_family_automotive(self, normalizer: SimpleNormalizer) -> None:
+        """Descriptions with automotive signals should be classified."""
+        result = normalizer.normalize(
+            _raw(description="Lead IATF 16949 compliance and APQP processes for automotive OEM.")
+        )
+        assert result.industry_family == "automotive"
+
+    def test_industry_family_other(self, normalizer: SimpleNormalizer) -> None:
+        """Vague descriptions should classify as other."""
+        result = normalizer.normalize(_raw(description="Lead team."))
+        assert result.industry_family == "other"
+
+    def test_job_function_family_from_title_family(self, normalizer: SimpleNormalizer) -> None:
+        """Job function should be derived from title family."""
+        result = normalizer.normalize(_raw(title="VP of Supply Chain"))
+        assert result.job_function_family == "supply_chain"
+
+    def test_job_function_family_from_title_text(self, normalizer: SimpleNormalizer) -> None:
+        """Job function should be derived from title text when no family."""
+        result = normalizer.normalize(_raw(title="Senior Manufacturing Manager"))
+        assert result.job_function_family == "manufacturing"
+
+    def test_scope_level_global(self, normalizer: SimpleNormalizer) -> None:
+        """Global scope markers should classify as global."""
+        result = normalizer.normalize(
+            _raw(
+                title="VP Global Operations",
+                description="Lead multi-site manufacturing across international footprint.",
+            )
+        )
+        assert result.scope_level == "global"
+
+    def test_scope_level_site(self, normalizer: SimpleNormalizer) -> None:
+        """Narrow scope markers should classify as site."""
+        result = normalizer.normalize(
+            _raw(
+                title="Plant Director",
+                description="Manage single site production at local plant.",
+            )
+        )
+        assert result.scope_level == "site"
+
+    def test_is_software_heavy(self, normalizer: SimpleNormalizer) -> None:
+        """Software-dominated roles should be flagged."""
+        result = normalizer.normalize(
+            _raw(
+                title="VP Engineering",
+                description=(
+                    "Lead software development using kubernetes, docker, "
+                    "and microservices architecture. Focus on CI/CD."
+                ),
+            )
+        )
+        assert result.is_software_heavy is True
+
+    def test_is_not_software_heavy(self, normalizer: SimpleNormalizer) -> None:
+        """Non-software roles should not be flagged."""
+        result = normalizer.normalize(
+            _raw(title="VP Operations", description="Lead manufacturing operations.")
+        )
+        assert result.is_software_heavy is False
+
+    def test_is_gtm_heavy(self, normalizer: SimpleNormalizer) -> None:
+        """GTM-dominated roles should be flagged."""
+        result = normalizer.normalize(
+            _raw(
+                title="VP Revenue",
+                description=(
+                    "Own demand generation and revenue operations. "
+                    "Build go-to-market strategy."
+                ),
+            )
+        )
+        assert result.is_gtm_heavy is True
+
+    def test_is_semiconductor_like(self, normalizer: SimpleNormalizer) -> None:
+        """Semiconductor roles should be flagged."""
+        result = normalizer.normalize(
+            _raw(description="Manage wafer fab and foundry backend operations.")
+        )
+        assert result.is_semiconductor_like is True
+
+    def test_not_semiconductor_like(self, normalizer: SimpleNormalizer) -> None:
+        """Non-semi roles should not be flagged."""
+        result = normalizer.normalize(
+            _raw(description="Lead marketing team for B2B SaaS product.")
+        )
+        assert result.is_semiconductor_like is False

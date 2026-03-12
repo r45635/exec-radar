@@ -1311,3 +1311,60 @@ select:focus { outline: none; border-color: var(--accent); }
     .profile-detail-sections { grid-template-columns: 1fr; }
     .compare-selectors { flex-direction: column; align-items: stretch; }
 }
+
+/* ── Decision badges ─────────────────────────────────────────── */
+.badge-decision {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+.badge-apply-now { background: #16a34a; color: #fff; }
+.badge-network-first { background: #2563eb; color: #fff; }
+.badge-watch { background: #ca8a04; color: #fff; }
+
+/* ── Industry & family badges ────────────────────────────────── */
+.badge-industry {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    background: var(--bg-muted, #f1f5f9);
+    color: var(--text-secondary, #64748b);
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+.badge-semiconductor { background: #dbeafe; color: #1e40af; }
+.badge-automotive { background: #fef3c7; color: #92400e; }
+.badge-aerospace_defense { background: #e0e7ff; color: #3730a3; }
+.badge-industrial_manufacturing { background: #f0fdf4; color: #166534; }
+.badge-software_cloud { background: #fce7f3; color: #9d174d; }
+.badge-semi {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.25rem;
+    border-radius: 3px;
+    background: #dbeafe;
+    color: #1e40af;
+    margin-left: 0.2rem;
+    vertical-align: middle;
+}
+.badge-family {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    background: #f0f9ff;
+    color: #0369a1;
+    margin-right: 0.2rem;
+}
+.badge-function {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.3rem;
+    border-radius: 3px;
+    background: #fefce8;
+    color: #854d0e;
+    margin-right: 0.2rem;
+}

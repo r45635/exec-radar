@@ -1,0 +1,84 @@
+# Exec Radar — Source Set Definitions
+# ====================================
+# Each source set groups job boards across ATS platforms (Greenhouse,
+# Lever, Ashby).  Reference a set by name in your TargetProfile or via
+# the EXEC_RADAR_SOURCE_SET environment variable.
+#
+# Format:
+#   - name: unique_identifier
+#     description: "Human-readable description"
+#     boards:                         # Greenhouse boards
+#       board_token: "Company Name"
+#     lever_boards:                   # Lever job boards
+#       company_slug: "Company Name"
+#     ashby_boards:                   # Ashby job boards
+#       company_slug: "Company Name"
+
+# ── Semiconductor executive operations ────────────────────────────
+- name: semiconductor_exec
+  description: >-
+    Semiconductor companies with executive operations, supply-chain,
+    and industrialization roles (IDM, fabless, foundry, OSAT).
+  boards:
+    lattice: "Lattice Semiconductor"
+    tenstorrent: "Tenstorrent"
+    skyworksinc: "Skyworks Solutions"
+    allegromicrosystems: "Allegro Microsystems"
+    sifive: "SiFive"
+    achronix: "Achronix Semiconductor"
+    rambusinc: "Rambus"
+    wolfspeed: "Wolfspeed"
+    maxlinear: "MaxLinear"
+    microchiptechnology: "Microchip Technology"
+    qaborcomm: "Qualcomm"
+    amaborkor: "Amkor Technology"
+  lever_boards:
+    rigetti: "Rigetti Computing"
+    aeva: "Aeva Technologies"
+  ashby_boards:
+    ramp: "Ramp"
+    cohere: "Cohere"
+
+# ── Deep-tech / hardware (broader than semi) ─────────────────────
+- name: deeptech_hardware
+  description: >-
+    AI-hardware, photonics, quantum, and advanced computing
+    companies with executive and operations roles.
+  boards:
+    lightmatter: "Lightmatter"
+    cerebrassystems: "Cerebras Systems"
+    tenstorrent: "Tenstorrent"
+    groq: "Groq"
+    sambanovasystems: "SambaNova Systems"
+    graphcore: "Graphcore"
+    mythic: "Mythic AI"
+    dabormatrix: "d-Matrix"
+  lever_boards:
+    rigetti: "Rigetti Computing"
+    hermeus: "Hermeus"
+  ashby_boards:
+    notion: "Notion"
+    linear: "Linear"
+
+# ── Broad executive operations (cross-industry) ──────────────────
+- name: broad_exec_ops
+  description: >-
+    Large companies across semiconductor, automotive, aerospace,
+    and industrial manufacturing with executive-level postings.
+  boards:
+    lattice: "Lattice Semiconductor"
+    tenstorrent: "Tenstorrent"
+    skyworksinc: "Skyworks Solutions"
+    rivian: "Rivian"
+    relativityspace: "Relativity Space"
+    andurilindustries: "Anduril Industries"
+    jobyaviation: "Joby Aviation"
+    zipline: "Zipline"
+    allegromicrosystems: "Allegro Microsystems"
+    wolfspeed: "Wolfspeed"
+  lever_boards:
+    aeva: "Aeva Technologies"
+    hermeus: "Hermeus"
+  ashby_boards:
+    ramp: "Ramp"
+    cohere: "Cohere"

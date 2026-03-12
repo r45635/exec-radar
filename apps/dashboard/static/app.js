@@ -33,6 +33,7 @@
   const searchInput = document.getElementById("search-input");
   const filterSeniority = document.getElementById("filter-seniority");
   const filterRemote = document.getElementById("filter-remote");
+  const filterDecision = document.getElementById("filter-decision");
   const filterStatus = document.getElementById("filter-status");
   const visibleCount = document.querySelector("[data-testid='visible-count']");
   const pageSizeSelect = document.getElementById("page-size");
@@ -153,6 +154,7 @@
     const q = normalizeText(searchInput ? searchInput.value : "");
     const sen = filterSeniority ? filterSeniority.value : "";
     const rem = filterRemote ? filterRemote.value : "";
+    const dec = filterDecision ? filterDecision.value : "";
     const sts = filterStatus ? filterStatus.value : "active";
 
     const ordered = rows.slice().sort((a, b) => compareRows(a, b, state.sort));
@@ -167,13 +169,14 @@
           normalizeText(row.dataset.location).includes(q);
         const senMatch = !sen || row.dataset.seniority === sen;
         const remMatch = !rem || row.dataset.remote === rem;
+        const decMatch = !dec || row.dataset.decision === dec;
 
         let statusMatch = true;
         if (sts === "active") statusMatch = !dismissed.has(id);
         else if (sts === "favorites") statusMatch = favorites.has(id);
         else if (sts === "dismissed") statusMatch = dismissed.has(id);
 
-        return textMatch && senMatch && remMatch && statusMatch;
+        return textMatch && senMatch && remMatch && decMatch && statusMatch;
       })
       .map((row) => row.dataset.jobId);
   }
@@ -210,6 +213,11 @@
     const seniority = (row.dataset.seniority || "other").replace("_", " ");
     const postedAt = formatDate(row.dataset.postedAt || "");
     const source = row.dataset.source || "-";
+    const decision = row.dataset.decision || "ignore";
+    const decisionLabel = { apply_now: "Apply Now", network_first: "Network", watch: "Watch" }[decision] || "";
+    const decisionBadge = decisionLabel
+      ? `<span class="badge badge-decision badge-${decision.replace("_", "-")}">${escapeHtml(decisionLabel)}</span>`
+      : "";
     const cardCls = [
       "job-card",
       favorites.has(jobId) ? "favorited" : "",
@@ -224,7 +232,7 @@
           <button class="job-card-title" data-role="open-detail">${escapeHtml(
             row.dataset.title || "Untitled"
           )}</button>
-          <span class="score-value">${scorePct}%</span>
+          <span class="score-value">${scorePct}%</span>${decisionBadge}
         </div>
         <div class="job-card-meta">
           <div>${escapeHtml(company)} • ${escapeHtml(location)}</div>
@@ -327,6 +335,30 @@
     );
     document.getElementById("detail-source").textContent = row.dataset.source || "-";
     document.getElementById("detail-date").textContent = formatDate(row.dataset.postedAt);
+
+    // Decision badge
+    const decisionEl = document.getElementById("detail-decision");
+    const decision = row.dataset.decision || "ignore";
+    const decisionLabels = { apply_now: "Apply Now", network_first: "Network First", watch: "Watch", ignore: "Ignore" };
+    const decisionClasses = { apply_now: "badge-apply-now", network_first: "badge-network-first", watch: "badge-watch", ignore: "badge-unknown" };
+    decisionEl.innerHTML = `<span class="badge badge-decision ${decisionClasses[decision] || "badge-unknown"}">${decisionLabels[decision] || decision}</span>`;
+
+    // Families
+    const familiesEl = document.getElementById("detail-families");
+    const parts = [];
+    const titleFamily = row.dataset.titleFamily;
+    const industryFamily = row.dataset.industryFamily;
+    const jobFunction = row.dataset.jobFunction;
+    if (titleFamily) parts.push(`<span class="badge badge-family">${escapeHtml(titleFamily)}</span>`);
+    if (industryFamily && industryFamily !== "other") parts.push(`<span class="badge badge-industry">${escapeHtml(industryFamily.replace(/_/g, " "))}</span>`);
+    if (jobFunction && jobFunction !== "other") parts.push(`<span class="badge badge-function">${escapeHtml(jobFunction.replace(/_/g, " "))}</span>`);
+    if (row.dataset.isSemi === "true") parts.push(`<span class="badge badge-semi" title="Semiconductor/industrial">⚡ Semi</span>`);
+    familiesEl.innerHTML = parts.length ? parts.join(" ") : "-";
+
+    // Scope level
+    const scopeEl = document.getElementById("detail-scope-level");
+    const scopeLevel = row.dataset.scopeLevel || "unknown";
+    scopeEl.textContent = scopeLevel === "unknown" ? "-" : scopeLevel;
 
     const salaryRow = document.getElementById("detail-salary-row");
     const salaryMin = row.dataset.salaryMin;
@@ -468,6 +500,13 @@
   }
   if (filterRemote) {
     filterRemote.addEventListener("change", () => {
+      state.page = 1;
+      state.cardStart = 0;
+      render();
+    });
+  }
+  if (filterDecision) {
+    filterDecision.addEventListener("change", () => {
       state.page = 1;
       state.cardStart = 0;
       render();

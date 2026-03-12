@@ -30,6 +30,47 @@ class RemotePolicy(StrEnum):
     UNKNOWN = "unknown"
 
 
+class ScopeLevel(StrEnum):
+    """Operational scope classification."""
+
+    GLOBAL = "global"
+    REGIONAL = "regional"
+    SITE = "site"
+    UNKNOWN = "unknown"
+
+
+class JobFunctionFamily(StrEnum):
+    """Broad job function classification."""
+
+    OPERATIONS = "operations"
+    SUPPLY_CHAIN = "supply_chain"
+    MANUFACTURING = "manufacturing"
+    QUALITY = "quality"
+    ENGINEERING = "engineering"
+    TRANSFORMATION = "transformation"
+    GENERAL_MANAGEMENT = "general_management"
+    FINANCE = "finance"
+    TECHNOLOGY = "technology"
+    PEOPLE = "people"
+    COMMERCIAL = "commercial"
+    STRATEGY = "strategy"
+    OTHER = "other"
+
+
+class IndustryFamily(StrEnum):
+    """Industry classification for the posting."""
+
+    SEMICONDUCTOR = "semiconductor"
+    AUTOMOTIVE = "automotive"
+    AEROSPACE_DEFENSE = "aerospace_defense"
+    INDUSTRIAL_MANUFACTURING = "industrial_manufacturing"
+    ENERGY_CHEMICALS = "energy_chemicals"
+    MEDICAL_DEVICES = "medical_devices"
+    CONSUMER_ELECTRONICS = "consumer_electronics"
+    SOFTWARE_CLOUD = "software_cloud"
+    OTHER = "other"
+
+
 class NormalizedJobPosting(BaseModel):
     """A job posting transformed into Exec Radar's canonical schema.
 
@@ -73,6 +114,15 @@ class NormalizedJobPosting(BaseModel):
     salary_currency: str | None = Field(default=None, description="ISO currency code")
 
     tags: list[str] = Field(default_factory=list, description="Extracted skill / domain tags")
+
+    # ── Extended normalization fields ─────────────────────────────
+    title_family: str | None = Field(default=None, description="Canonical title family (COO, VP_OPERATIONS, etc.)")
+    industry_family: IndustryFamily = Field(default=IndustryFamily.OTHER, description="Industry classification")
+    job_function_family: JobFunctionFamily = Field(default=JobFunctionFamily.OTHER, description="Job function classification")
+    scope_level: ScopeLevel = Field(default=ScopeLevel.UNKNOWN, description="Operational scope")
+    is_software_heavy: bool = Field(default=False, description="True if role is dominated by software signals")
+    is_gtm_heavy: bool = Field(default=False, description="True if role is dominated by GTM/sales signals")
+    is_semiconductor_like: bool = Field(default=False, description="True if posting has semiconductor/industrial signals")
 
     posted_at: datetime | None = Field(default=None, description="Original publication date")
     normalized_at: datetime = Field(

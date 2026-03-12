@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import textwrap
+from pathlib import Path
+
 import pytest
 
 from packages.source_sets import (
     SourceSet,
+    _REGISTRY,
     get_source_set,
     list_source_sets,
+    load_source_sets_from_yaml,
+    reload_registry,
     source_set_names,
 )
 
@@ -93,3 +99,83 @@ class TestSourceSetRegistry:
             for slug, label in ss.ashby_boards.items():
                 assert slug, f"{ss.name} has an empty ashby slug"
                 assert label, f"{ss.name} ashby {slug} has no label"
+
+
+class TestYAMLLoader:
+    """Tests for YAML-based source set loading."""
+
+    def test_load_valid_yaml(self, tmp_path: Path) -> None:
+        """A valid YAML file should be parsed into SourceSets."""
+        yaml_content = textwrap.dedent("""\
+        - name: test_set
+          description: "Test source set"
+          boards:
+            testboard: "Test Company"
+          lever_boards:
+            testlever: "Lever Company"
+        """)
+        yaml_file = tmp_path / "sources.yaml"
+        yaml_file.write_text(yaml_content)
+        result = load_source_sets_from_yaml(yaml_file)
+        assert "test_set" in result
+        ss = result["test_set"]
+        assert ss.name == "test_set"
+        assert ss.boards == {"testboard": "Test Company"}
+        assert ss.lever_boards == {"testlever": "Lever Company"}
+
+    def test_load_missing_file(self, tmp_path: Path) -> None:
+        """Missing YAML should return empty dict."""
+        result = load_source_sets_from_yaml(tmp_path / "nope.yaml")
+        assert result == {}
+
+    def test_load_invalid_yaml_not_list(self, tmp_path: Path) -> None:
+        """A YAML file that isn't a list should return empty dict."""
+        yaml_file = tmp_path / "sources.yaml"
+        yaml_file.write_text("key: value\n")
+        result = load_source_sets_from_yaml(yaml_file)
+        assert result == {}
+
+    def test_load_skips_entries_without_name(self, tmp_path: Path) -> None:
+        """Entries without a name should be skipped."""
+        yaml_content = textwrap.dedent("""\
+        - description: "No name"
+          boards:
+            b: "C"
+        - name: valid
+          description: "Valid"
+          boards:
+            a: "A"
+        """)
+        yaml_file = tmp_path / "sources.yaml"
+        yaml_file.write_text(yaml_content)
+        result = load_source_sets_from_yaml(yaml_file)
+        assert "valid" in result
+        assert len(result) == 1
+
+    def test_load_skips_entries_without_boards(self, tmp_path: Path) -> None:
+        """Entries with no boards at all should be skipped."""
+        yaml_content = textwrap.dedent("""\
+        - name: empty_boards
+          description: "No boards"
+        """)
+        yaml_file = tmp_path / "sources.yaml"
+        yaml_file.write_text(yaml_content)
+        result = load_source_sets_from_yaml(yaml_file)
+        assert result == {}
+
+    def test_reload_from_yaml(self, tmp_path: Path) -> None:
+        """reload_registry should load from YAML and update registry."""
+        yaml_content = textwrap.dedent("""\
+        - name: reload_test
+          description: "Reload test"
+          boards:
+            r1: "R1"
+        """)
+        yaml_file = tmp_path / "sources.yaml"
+        yaml_file.write_text(yaml_content)
+        count = reload_registry(yaml_file)
+        assert count == 1
+        assert "reload_test" in _REGISTRY
+        # Restore original
+        reload_registry()
+        assert "semiconductor_exec" in _REGISTRY

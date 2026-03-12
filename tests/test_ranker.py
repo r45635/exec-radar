@@ -7,9 +7,11 @@ import itertools
 import pytest
 
 from packages.rankers.rule_based_ranker import RuleBasedRanker
+from packages.schemas.fit_score import JobDecision
 from packages.schemas.normalized_job import (
     NormalizedJobPosting,
     RemotePolicy,
+    ScopeLevel,
     SeniorityLevel,
 )
 from packages.schemas.target_profile import TargetProfile
@@ -37,6 +39,10 @@ def _make_job(
     company: str | None = None,
     location: str | None = None,
     description_plain: str = "",
+    is_software_heavy: bool = False,
+    is_gtm_heavy: bool = False,
+    is_semiconductor_like: bool = False,
+    scope_level: ScopeLevel = ScopeLevel.UNKNOWN,
 ) -> NormalizedJobPosting:
     """Helper to construct a NormalizedJobPosting with a unique source_id."""
     return NormalizedJobPosting(
@@ -49,6 +55,10 @@ def _make_job(
         company=company,
         location=location,
         description_plain=description_plain,
+        is_software_heavy=is_software_heavy,
+        is_gtm_heavy=is_gtm_heavy,
+        is_semiconductor_like=is_semiconductor_like,
+        scope_level=scope_level,
     )
 
 
@@ -1224,3 +1234,199 @@ class TestPreferredSourceSet:
         """Setting preferred_source_set should persist."""
         p = TargetProfile(preferred_source_set="semiconductor_exec")
         assert p.preferred_source_set == "semiconductor_exec"
+
+
+# ====================================================================
+# Decision classification tests
+# ====================================================================
+
+
+class TestDecisionClassification:
+    """Tests for JobDecision assignment via _classify_decision."""
+
+    def test_apply_now_high_score(self) -> None:
+        """A strong exec match with no red flags → apply_now."""
+        job = _make_job(
+            title="Chief Operating Officer",
+            seniority=SeniorityLevel.C_LEVEL,
+            remote_policy=RemotePolicy.HYBRID,
+            tags=["operations", "semiconductor", "manufacturing", "lean",
+                  "supply chain", "P&L", "continuous improvement"],
+            is_semiconductor_like=True,
+        )
+        score = _semi_ranker().score(job)
+        assert score.job_decision in (JobDecision.APPLY_NOW, JobDecision.NETWORK_FIRST)
+
+    def test_network_first_moderate_score(self) -> None:
+        """A good but not stellar match → network_first or watch."""
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+        )
+        score = _semi_ranker().score(job)
+        assert score.job_decision in (JobDecision.NETWORK_FIRST, JobDecision.WATCH)
+
+    def test_watch_low_score(self) -> None:
+        """A marginal match → watch."""
+        job = _make_job(
+            title="Operations Manager",
+            seniority=SeniorityLevel.OTHER,
+            tags=["logistics"],
+        )
+        score = _semi_ranker().score(job)
+        assert score.job_decision in (JobDecision.WATCH, JobDecision.IGNORE)
+
+    def test_ignore_very_low_score(self) -> None:
+        """An unrelated role → ignore."""
+        job = _make_job(
+            title="Junior Frontend Developer",
+            seniority=SeniorityLevel.OTHER,
+        )
+        score = _semi_ranker().score(job)
+        assert score.job_decision == JobDecision.IGNORE
+
+    def test_software_heavy_capped_at_watch(self) -> None:
+        """Software-heavy jobs should never get better than watch."""
+        job = _make_job(
+            title="VP of Engineering",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "manufacturing"],
+            is_software_heavy=True,
+        )
+        score = _semi_ranker().score(job)
+        assert score.job_decision in (JobDecision.WATCH, JobDecision.IGNORE)
+
+    def test_gtm_heavy_capped_at_watch(self) -> None:
+        """GTM-heavy jobs should never get better than watch."""
+        job = _make_job(
+            title="VP of Revenue Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "go-to-market"],
+            is_gtm_heavy=True,
+        )
+        score = _semi_ranker().score(job)
+        assert score.job_decision in (JobDecision.WATCH, JobDecision.IGNORE)
+
+    def test_decision_field_present(self) -> None:
+        """Every FitScore should have a job_decision field."""
+        job = _make_job(title="Analyst")
+        score = _semi_ranker().score(job)
+        assert isinstance(score.job_decision, str)
+        assert score.job_decision in {
+            JobDecision.APPLY_NOW,
+            JobDecision.NETWORK_FIRST,
+            JobDecision.WATCH,
+            JobDecision.IGNORE,
+        }
+
+
+# ====================================================================
+# Ranker refactoring tests (pre-computed flags)
+# ====================================================================
+
+
+class TestRankerPrecomputedFlags:
+    """Verify ranker uses pre-computed normalization flags correctly."""
+
+    def test_semiconductor_flag_boosts_score(self) -> None:
+        """is_semiconductor_like should boost industry signal count."""
+        job_semi = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "manufacturing"],
+            is_semiconductor_like=True,
+        )
+        job_plain = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations", "manufacturing"],
+            is_semiconductor_like=False,
+        )
+        ranker = _semi_ranker()
+        score_semi = ranker.score(job_semi)
+        score_plain = ranker.score(job_plain)
+        assert score_semi.overall >= score_plain.overall
+
+    def test_semiconductor_flag_adds_why_matched(self) -> None:
+        """is_semiconductor_like should add to why_matched."""
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            is_semiconductor_like=True,
+        )
+        score = _semi_ranker().score(job)
+        semi_notes = [m for m in score.why_matched if "semiconductor" in m.lower() or "semi" in m.lower()]
+        assert len(semi_notes) > 0
+
+    def test_software_heavy_flag_penalizes(self) -> None:
+        """is_software_heavy flag should trigger penalty even without keywords."""
+        job_sw = _make_job(
+            title="VP of Engineering",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            is_software_heavy=True,
+        )
+        job_plain = _make_job(
+            title="VP of Engineering",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            is_software_heavy=False,
+        )
+        ranker = _semi_ranker()
+        assert ranker.score(job_sw).overall < ranker.score(job_plain).overall
+
+    def test_gtm_heavy_flag_penalizes(self) -> None:
+        """is_gtm_heavy flag should trigger penalty."""
+        job_gtm = _make_job(
+            title="VP of Revenue",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            is_gtm_heavy=True,
+        )
+        job_plain = _make_job(
+            title="VP of Revenue",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            is_gtm_heavy=False,
+        )
+        ranker = _semi_ranker()
+        assert ranker.score(job_gtm).overall < ranker.score(job_plain).overall
+
+    def test_site_scope_penalty(self) -> None:
+        """Site-level scope should be penalized."""
+        job_site = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            scope_level=ScopeLevel.SITE,
+        )
+        job_global = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            tags=["operations"],
+            scope_level=ScopeLevel.GLOBAL,
+        )
+        ranker = _semi_ranker()
+        assert ranker.score(job_site).overall <= ranker.score(job_global).overall
+
+    def test_semiconductor_skips_misleading_ops_penalty(self) -> None:
+        """Semi roles should NOT get misleading-ops penalty for industrial titles."""
+        job_semi = _make_job(
+            title="Plant Manager",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["manufacturing", "operations"],
+            is_semiconductor_like=True,
+            description_plain="Manage semiconductor fab operations.",
+        )
+        job_generic = _make_job(
+            title="Plant Manager",
+            seniority=SeniorityLevel.DIRECTOR,
+            tags=["manufacturing", "operations"],
+            is_semiconductor_like=False,
+            description_plain="Manage operations.",
+        )
+        ranker = _semi_ranker()
+        # Semi plant manager should score at least as well as generic
+        assert ranker.score(job_semi).overall >= ranker.score(job_generic).overall

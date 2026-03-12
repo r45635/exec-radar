@@ -2,7 +2,18 @@
 
 from __future__ import annotations
 
+from enum import StrEnum
+
 from pydantic import BaseModel, ConfigDict, Field
+
+
+class JobDecision(StrEnum):
+    """Final decision classification for a scored posting."""
+
+    APPLY_NOW = "apply_now"
+    NETWORK_FIRST = "network_first"
+    WATCH = "watch"
+    IGNORE = "ignore"
 
 
 class FitScore(BaseModel):
@@ -41,4 +52,10 @@ class FitScore(BaseModel):
     red_flags: list[str] = Field(
         default_factory=list,
         description="Hard negatives or deal-breakers.",
+    )
+
+    # ── Decision classification ───────────────────────────────────
+    job_decision: JobDecision = Field(
+        default=JobDecision.IGNORE,
+        description="Final decision: apply_now, network_first, watch, or ignore.",
     )

@@ -78,6 +78,13 @@
             <option value="onsite">Onsite</option>
             <option value="unknown">Unknown</option>
         </select>
+        <select id="filter-decision" data-testid="filter-decision" title="Filter by decision">
+            <option value="">All decisions</option>
+            <option value="apply_now">Apply Now</option>
+            <option value="network_first">Network First</option>
+            <option value="watch">Watch</option>
+            <option value="ignore">Ignore</option>
+        </select>
         <select id="filter-status" data-testid="filter-status" title="Filter by status">
             <option value="active">Active</option>
             <option value="favorites">Favorites</option>
@@ -168,6 +175,12 @@
                     data-why-matched="{{ sj.score.why_matched | join('||') | e }}"
                     data-why-penalized="{{ sj.score.why_penalized | join('||') | e }}"
                     data-red-flags="{{ sj.score.red_flags | join('||') | e }}"
+                    data-decision="{{ sj.score.job_decision.value }}"
+                    data-title-family="{{ sj.job.title_family or '' }}"
+                    data-industry-family="{{ sj.job.industry_family.value }}"
+                    data-job-function="{{ sj.job.job_function_family.value }}"
+                    data-scope-level="{{ sj.job.scope_level.value }}"
+                    data-is-semi="{{ 'true' if sj.job.is_semiconductor_like else 'false' }}"
                 >
                     {# Actions #}
                     <td class="col-actions">
@@ -184,13 +197,28 @@
                             <span class="bar"><span class="fill" style="width: {{ (sj.score.overall * 100) | int }}%"></span></span>
                             <span class="score-value">{{ "%.0f" | format(sj.score.overall * 100) }}%</span>
                         </span>
+                        {% if sj.score.job_decision.value == "apply_now" %}
+                        <span class="badge badge-decision badge-apply-now">Apply Now</span>
+                        {% elif sj.score.job_decision.value == "network_first" %}
+                        <span class="badge badge-decision badge-network-first">Network</span>
+                        {% elif sj.score.job_decision.value == "watch" %}
+                        <span class="badge badge-decision badge-watch">Watch</span>
+                        {% endif %}
                     </td>
                     {# Title #}
                     <td class="col-title">
                         <button class="job-title-btn" data-testid="job-title-btn">{{ sj.job.title }}</button>
                     </td>
                     {# Company #}
-                    <td class="col-company">{{ sj.job.company or "—" }}</td>
+                    <td class="col-company">
+                        {{ sj.job.company or "—" }}
+                        {% if sj.job.industry_family.value != "other" %}
+                        <span class="badge badge-industry badge-{{ sj.job.industry_family.value }}">{{ sj.job.industry_family.value | replace("_", " ") }}</span>
+                        {% endif %}
+                        {% if sj.job.is_semiconductor_like %}
+                        <span class="badge badge-semi" title="Semiconductor/industrial signals">⚡</span>
+                        {% endif %}
+                    </td>
                     {# Location #}
                     <td class="col-location">{{ sj.job.location or "—" }}</td>
                     {# Remote #}
@@ -267,6 +295,9 @@
             <div class="meta-item"><span class="meta-label">Posted</span><span id="detail-date"></span></div>
             <div class="meta-item"><span class="meta-label">Source</span><span id="detail-source"></span></div>
             <div class="meta-item" id="detail-salary-row" style="display:none"><span class="meta-label">Salary</span><span id="detail-salary"></span></div>
+            <div class="meta-item" id="detail-decision-row"><span class="meta-label">Decision</span><span id="detail-decision"></span></div>
+            <div class="meta-item" id="detail-family-row"><span class="meta-label">Families</span><span id="detail-families"></span></div>
+            <div class="meta-item" id="detail-scope-row"><span class="meta-label">Scope</span><span id="detail-scope-level"></span></div>
         </div>
 
         <div class="detail-section">

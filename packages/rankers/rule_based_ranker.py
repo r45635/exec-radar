@@ -19,10 +19,11 @@ from packages.rankers.keyword_clusters import (
     aggregate_cluster_score,
     score_clusters,
 )
-from packages.schemas.fit_score import FitScore
+from packages.schemas.fit_score import FitScore, JobDecision
 from packages.schemas.normalized_job import (
     NormalizedJobPosting,
     RemotePolicy,
+    ScopeLevel,
     SeniorityLevel,
 )
 from packages.schemas.target_profile import TargetProfile
@@ -196,6 +197,10 @@ class RuleBasedRanker(BaseRanker):
             geo_score=geo_score,
         )
 
+        # ── Semiconductor-like bonus ─────────────────────────────
+        if job.is_semiconductor_like:
+            why_matched.append("Semiconductor/industrial signals detected")
+
         # ── Company adjustments ───────────────────────────────────
         company_lower = (job.company or "").lower().strip()
         if company_lower and p.excluded_companies:
@@ -209,6 +214,11 @@ class RuleBasedRanker(BaseRanker):
                 why_matched.append("Preferred company")
 
         overall = max(0.0, min(1.0, overall))
+
+        # ── Decision classification ───────────────────────────────
+        job_decision = self._classify_decision(
+            overall, red_flags, job, title_score, seniority_score,
+        )
 
         # ── Build explanation string ──────────────────────────────
         parts: list[str] = []
@@ -232,6 +242,7 @@ class RuleBasedRanker(BaseRanker):
             why_matched=why_matched,
             why_penalized=why_penalized,
             red_flags=red_flags,
+            job_decision=job_decision,
         )
 
     # ------------------------------------------------------------------
@@ -279,38 +290,51 @@ class RuleBasedRanker(BaseRanker):
         Returns the adjusted overall score.
         """
         # -- 1. Software-heavy penalty ----------------------------
-        sw_hits = sum(
-            1 for kw in RuleBasedRanker._SOFTWARE_SIGNALS
-            if kw in combined_text
-        )
-        if sw_hits >= 3:
+        #    Use pre-computed flag first, fall back to keyword scan
+        if job.is_software_heavy:
             overall *= 0.50
-            why_penalized.append(
-                f"Software-heavy role ({sw_hits} software signals)"
-            )
+            why_penalized.append("Software-heavy role (pre-classified)")
             red_flags.append("Software-heavy role")
-        elif sw_hits >= 2:
-            overall *= 0.75
-            why_penalized.append("Some software signals detected")
+        else:
+            sw_hits = sum(
+                1 for kw in RuleBasedRanker._SOFTWARE_SIGNALS
+                if kw in combined_text
+            )
+            if sw_hits >= 3:
+                overall *= 0.50
+                why_penalized.append(
+                    f"Software-heavy role ({sw_hits} software signals)"
+                )
+                red_flags.append("Software-heavy role")
+            elif sw_hits >= 2:
+                overall *= 0.75
+                why_penalized.append("Some software signals detected")
 
         # -- 2. GTM / business-only penalty -----------------------
-        gtm_hits = sum(
-            1 for kw in RuleBasedRanker._GTM_SIGNALS
-            if kw in combined_text
-        )
-        if gtm_hits >= 2:
+        #    Use pre-computed flag first, fall back to keyword scan
+        if job.is_gtm_heavy:
             overall *= 0.50
-            why_penalized.append(
-                f"Business/GTM-heavy role ({gtm_hits} GTM signals)"
-            )
+            why_penalized.append("Business/GTM-heavy role (pre-classified)")
             red_flags.append("GTM / business-only role")
-        elif gtm_hits == 1:
-            overall *= 0.80
-            why_penalized.append("GTM signal detected")
+        else:
+            gtm_hits = sum(
+                1 for kw in RuleBasedRanker._GTM_SIGNALS
+                if kw in combined_text
+            )
+            if gtm_hits >= 2:
+                overall *= 0.50
+                why_penalized.append(
+                    f"Business/GTM-heavy role ({gtm_hits} GTM signals)"
+                )
+                red_flags.append("GTM / business-only role")
+            elif gtm_hits == 1:
+                overall *= 0.80
+                why_penalized.append("GTM signal detected")
 
         # -- 3. Ops title but weak industrial scope ---------------
-        #    Title looks right but no manufacturing/SC/industrial evidence
-        if title_score >= 0.5:
+        #    Title looks right but no manufacturing/SC/industrial evidence.
+        #    Skip if posting is already classified as semiconductor-like.
+        if title_score >= 0.5 and not job.is_semiconductor_like:
             ind_hits = sum(
                 1 for kw in RuleBasedRanker._INDUSTRIAL_SIGNALS
                 if kw in combined_text
@@ -338,36 +362,41 @@ class RuleBasedRanker(BaseRanker):
                 red_flags.append("Too junior")
 
         # -- 5. Narrow single-site/plant when exec scope wanted ---
-        #    Profile has broad scope keywords but job is narrow
-        narrow_markers = {"single site", "one plant", "local plant",
-                          "site-level", "plant-level"}
+        #    Use pre-computed scope_level when available
         has_broad_scope = any(
             kw in {"global operations", "multi-site",
                     "international footprint", "cross-functional leadership"}
             for kw in (k.lower() for k in profile.preferred_scope_keywords)
         )
         if has_broad_scope:
-            is_narrow = any(m in combined_text for m in narrow_markers)
-            # Detect scope level from tags + description
-            scope_level = RuleBasedRanker._detect_scope_level(
-                job.tags, job.description_plain,
-            )
-            # Plant Director / site manager without global/multi-site
-            if (
-                is_narrow
-                or (
-                    "plant director" in title_lower
-                    and scope_level != "global"
-                )
-                or (
-                    "site manager" in title_lower
-                    and scope_level != "global"
-                )
-            ):
+            if job.scope_level == ScopeLevel.SITE:
                 overall *= 0.50
                 why_penalized.append(
                     "Narrow scope (single-site/plant) vs. exec profile"
                 )
+            elif job.scope_level == ScopeLevel.UNKNOWN:
+                # Fallback to text scan for unknown scope
+                narrow_markers = {"single site", "one plant", "local plant",
+                                  "site-level", "plant-level"}
+                is_narrow = any(m in combined_text for m in narrow_markers)
+                scope_level_text = RuleBasedRanker._detect_scope_level(
+                    job.tags, job.description_plain,
+                )
+                if (
+                    is_narrow
+                    or (
+                        "plant director" in title_lower
+                        and scope_level_text != "global"
+                    )
+                    or (
+                        "site manager" in title_lower
+                        and scope_level_text != "global"
+                    )
+                ):
+                    overall *= 0.50
+                    why_penalized.append(
+                        "Narrow scope (single-site/plant) vs. exec profile"
+                    )
 
         # -- 6. Geography mismatch penalty ------------------------
         #    When the profile specifies target locations/geographies
@@ -388,6 +417,7 @@ class RuleBasedRanker(BaseRanker):
         # -- 7. Exec semiconductor bonus --------------------------
         #    Reward postings that combine multiple high-value signals
         #    for executive semiconductor operations roles.
+        #    Boost further if pre-classified as semiconductor-like.
         exec_semi_signals = {
             "global operations", "multi-site", "business unit",
             "supply chain", "industrialization", "quality",
@@ -398,6 +428,9 @@ class RuleBasedRanker(BaseRanker):
         exec_semi_hits = sum(
             1 for kw in exec_semi_signals if kw in combined_text
         )
+        # Boost if semiconductor-like flag is set
+        if job.is_semiconductor_like:
+            exec_semi_hits += 2
         if exec_semi_hits >= 4:
             overall *= 1.15  # up to 15% boost
             why_matched.append(
@@ -410,6 +443,48 @@ class RuleBasedRanker(BaseRanker):
             )
 
         return overall
+
+    # ------------------------------------------------------------------
+    # Decision classification
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _classify_decision(
+        overall: float,
+        red_flags: list[str],
+        job: NormalizedJobPosting,
+        title_score: float,
+        seniority_score: float,
+    ) -> JobDecision:
+        """Classify the final decision based on score + overrides.
+
+        Thresholds:
+        - apply_now:     overall >= 0.65 AND no red flags AND title >= 0.5
+        - network_first: overall >= 0.45 AND title >= 0.3
+        - watch:         overall >= 0.25
+        - ignore:        everything else
+
+        Overrides:
+        - Software-heavy or GTM-heavy → max watch
+        - Too-junior seniority → ignore
+        """
+        # Hard overrides
+        if job.is_software_heavy or job.is_gtm_heavy:
+            if overall >= 0.25:
+                return JobDecision.WATCH
+            return JobDecision.IGNORE
+
+        if seniority_score <= 0.2 and job.seniority == SeniorityLevel.OTHER:
+            return JobDecision.IGNORE
+
+        # Threshold-based
+        if overall >= 0.65 and not red_flags and title_score >= 0.5:
+            return JobDecision.APPLY_NOW
+        if overall >= 0.45 and title_score >= 0.3:
+            return JobDecision.NETWORK_FIRST
+        if overall >= 0.25:
+            return JobDecision.WATCH
+        return JobDecision.IGNORE
 
     # ------------------------------------------------------------------
     # Dimension scoring helpers
