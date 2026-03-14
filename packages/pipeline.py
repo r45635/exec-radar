@@ -21,6 +21,7 @@ from packages.db.repository import (
     save_normalized_postings,
     save_raw_postings,
 )
+from packages.filters import filter_executive_postings
 from packages.normalizers.base import BaseNormalizer
 from packages.rankers.base import BaseRanker
 from packages.schemas.scored_job import ScoredJob
@@ -49,6 +50,7 @@ async def run_pipeline(
         (descending).
     """
     raw_postings = await collector.collect()
+    raw_postings = filter_executive_postings(raw_postings)
     normalized = [normalizer.normalize(raw) for raw in raw_postings]
     scores = ranker.score_batch(normalized)
 
@@ -85,6 +87,7 @@ async def run_pipeline_with_persistence(
     try:
         # 2. Collect
         raw_postings = await collector.collect()
+        raw_postings = filter_executive_postings(raw_postings)
 
         # 3. Persist raw postings
         raw_records = await save_raw_postings(session, raw_postings, run_id=source_run.id)

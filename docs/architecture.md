@@ -7,12 +7,12 @@ Exec Radar is an AI-powered executive job intelligence platform.  It continuousl
 ## High-Level Data Flow
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────┐     ┌──────────┐
-│  Collectors  │────▶│  Normalizers  │────▶│ Rankers  │────▶│   API    │
-│  (raw data)  │     │  (canonical)  │     │ (scored) │     │ (serve)  │
-└─────────────┘     └──────────────┘     └─────────┘     └──────────┘
-        │                   │                  │
-        └───────────────────┴──────────────────┘
+┌─────────────┐     ┌────────────┐     ┌──────────────┐     ┌───────────┐     ┌──────────┐
+│  Collectors  │────▶│  Pre-Filter │────▶│  Normalizers  │────▶│  Rankers   │────▶│   API    │
+│  (raw data)  │     │  (title rx) │     │  (canonical)  │     │ (scored)  │     │ (serve)  │
+└─────────────┘     └────────────┘     └──────────────┘     └───────────┘     └──────────┘
+        │                                    │                  │
+        └────────────────────────────────────┴──────────────────┘
                      ▼ (optional)
               ┌──────────────┐
               │  PostgreSQL   │
@@ -25,6 +25,7 @@ Exec Radar is an AI-powered executive job intelligence platform.  It continuousl
 | Stage       | Input              | Output                 | Location                     |
 |-------------|--------------------|------------------------|------------------------------|
 | Collect     | External source    | `RawJobPosting`        | `packages/collectors/`       |
+| Pre-Filter  | `RawJobPosting`    | `RawJobPosting` (exec-only) | `packages/filters/`     |
 | Normalize   | `RawJobPosting`    | `NormalizedJobPosting`  | `packages/normalizers/`      |
 | Rank        | `NormalizedJobPosting` + `TargetProfile` | `FitScore` | `packages/rankers/`  |
 | Serve       | Scored postings    | JSON API response      | `apps/api/`                  |
@@ -92,11 +93,40 @@ Profiles can be loaded from YAML via `packages.profile_loader.load_profile(path)
 | Collector | Source | Config |
 |-----------|--------|--------|
 | `MockCollector` | Hard-coded samples | None |
-| `GreenhouseCollector` | Greenhouse Boards API (unauthenticated public JSON) | `board_token` / `EXEC_RADAR_GREENHOUSE_BOARD` |
+| `GreenhouseCollector` | Greenhouse Boards API (two-phase: light listing → title filter → detail fetch) | `board_token` / `EXEC_RADAR_GREENHOUSE_BOARD` |
 | `LeverCollector` | Lever Postings API (unauthenticated public JSON) | `company_slug` / `EXEC_RADAR_LEVER_COMPANY` |
 | `AshbyCollector` | Ashby career pages (embedded `window.__appData` JSON) | `company_slug` / `EXEC_RADAR_ASHBY_COMPANY` |
 
 The active collector is controlled by the `EXEC_RADAR_COLLECTOR` environment variable (`mock` by default). Supported values: `mock`, `greenhouse`, `lever`, `ashby`, `all`, or combinations like `greenhouse+lever+ashby`. All real collectors accept an injected `httpx.AsyncClient`, keeping the network boundary explicit and easy to mock in tests.
+
+#### Two-Phase Greenhouse Collection
+
+The `GreenhouseCollector` uses a bandwidth-optimized two-phase strategy:
+
+1. **Phase 1 — Light listing**: Fetches all jobs from a board *without* `content=true`, returning only titles and metadata (no HTML descriptions).
+2. **Phase 1b — Title filter**: Applies `is_executive_title()` from `packages/filters/` to eliminate non-executive titles immediately.
+3. **Phase 2 — Detail fetch**: Fetches individual `/jobs/{id}` detail pages *only* for the filtered executive titles, with a concurrency semaphore (`asyncio.Semaphore(10)`).
+
+This avoids downloading full HTML descriptions for hundreds of irrelevant jobs (engineers, interns, analysts), reducing payload size and latency significantly.
+
+#### Executive Title Pre-Filter
+
+`packages/filters/__init__.py` provides a fast regex-based screen applied in the pipeline *before* normalization:
+
+- `_EXEC_TITLE_RE` — matches VP, Director, Head of, Chief, SVP, GM, President, Executive, Principal, Managing Director, etc.
+- `_JUNIOR_REJECT_RE` — rejects intern, trainee, coordinator, operator, clerk, etc. (with exclusions for "Associate Director", "Assistant VP")
+- `_MID_REJECT_RE` — rejects analyst, specialist, engineer, scientist, developer, etc.
+
+Logic: exec prefix → keep; no exec prefix + junior/mid marker → reject; unknown → keep (fail-open).
+
+### Background Auto-Refresh
+
+The dashboard (`apps/dashboard/app.py`) runs the pipeline in a background `asyncio.Task`:
+
+- **Startup**: Pipeline runs immediately, populating the cache before the first request.
+- **Periodic**: Every `_CACHE_TTL` seconds (default 300s), the pipeline re-runs automatically.
+- **Non-blocking**: The dashboard always serves from cache — never blocks on collection.
+- **Profile change**: Switching profiles triggers an immediate background refresh while serving stale data.
 
 ### Service Assembly
 
@@ -109,9 +139,9 @@ Collector selection is driven by the `EXEC_RADAR_COLLECTOR` env var (`mock`, `gr
 `packages/source_sets.py` provides a registry of curated board collections (`SourceSet`) spanning Greenhouse, Lever, and Ashby.  Each profile can reference a `preferred_source_set`, which takes priority over individual board tokens when building the collector.
 
 Built-in sets:
-- `semiconductor_exec` — 12 Greenhouse + 2 Lever + 2 Ashby boards
-- `deeptech_hardware` — 8 Greenhouse + 2 Lever + 2 Ashby boards
-- `broad_exec_ops` — 10 Greenhouse + 2 Lever + 2 Ashby boards
+- `semiconductor_exec_core` — 8 Greenhouse + 2 Lever + 1 Ashby boards
+- `photonics_mems_ops` — 3 Greenhouse + 2 Lever + 2 Ashby boards
+- `broad_hardware_supply_chain` — 7 Greenhouse + 2 Lever + 1 Ashby boards
 
 Source sets can also be selected via `EXEC_RADAR_SOURCE_SET`.
 
@@ -149,11 +179,12 @@ exec-radar/
 ├── apps/
 │   ├── api/            # FastAPI service (routes, config, models)
 │   ├── worker/         # Background pipeline runner
-│   └── dashboard/      # UI placeholder
+│   └── dashboard/      # Interactive dashboard with background auto-refresh
 ├── packages/
 │   ├── schemas/        # Pydantic v2 models (RawJobPosting, NormalizedJobPosting, FitScore, TargetProfile)
 │   ├── db/             # SQLAlchemy ORM models, engine, repository (persistence layer)
 │   ├── collectors/     # Source-specific ingestion (BaseCollector → MockCollector, GreenhouseCollector, …)
+│   ├── filters/        # Executive title pre-filter (regex-based, ~68% noise reduction)
 │   ├── normalizers/    # Raw-to-canonical transformation (BaseNormalizer → SimpleNormalizer, …)
 │   ├── rankers/        # Scoring logic (BaseRanker → RuleBasedRanker, …)
 │   └── notifications/  # Delivery channels (BaseNotifier, …)

@@ -37,12 +37,9 @@ from packages.source_sets import get_source_set
 
 # Board token → human-readable company name
 _BOARD_COMPANY_NAMES: dict[str, str] = {
-    "lattice": "Lattice Semiconductor",
-    "tenstorrent": "Tenstorrent",
-    "graphcore": "Graphcore",
-    "lightmatter": "Lightmatter",
-    "sambanovasystems": "SambaNova Systems",
-    "cerebrassystems": "Cerebras Systems",
+    "samsungsemiconductor": "Samsung Semiconductor",
+    "anellophotonics": "ANELLO Photonics",
+    "andurilindustries": "Anduril Industries",
 }
 
 # Default boards when EXEC_RADAR_GREENHOUSE_BOARDS is not set

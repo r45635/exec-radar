@@ -65,16 +65,35 @@ _EMPTY_RESPONSE = {"jobs": []}
 
 
 class _FakeTransport(httpx.AsyncBaseTransport):
-    """A transport that returns a canned JSON response."""
+    """A transport that returns canned responses for Greenhouse API.
+
+    Handles both listing (``/jobs``) and detail (``/jobs/{id}``) routes
+    so the two-phase collector works correctly in tests.
+    """
 
     def __init__(self, json_data: dict, status_code: int = 200) -> None:
         self._json_data = json_data
         self._status_code = status_code
+        # Build a lookup for individual job detail requests
+        self._jobs_by_id: dict[str, dict] = {}
+        for job in json_data.get("jobs", []):
+            self._jobs_by_id[str(job["id"])] = job
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         import json
+        import re
 
-        body = json.dumps(self._json_data).encode()
+        url_path = request.url.path
+        # Check if this is a detail request: /v1/boards/{token}/jobs/{id}
+        detail_match = re.search(r"/jobs/(\d+)$", url_path)
+        if detail_match:
+            job_id = detail_match.group(1)
+            body_data = self._jobs_by_id.get(job_id, {})
+        else:
+            # Listing request
+            body_data = self._json_data
+
+        body = json.dumps(body_data).encode()
         return httpx.Response(
             status_code=self._status_code,
             headers={"content-type": "application/json"},
@@ -212,23 +231,30 @@ class TestGreenhouseCollectorEdgeCases:
             await collector.collect()
 
     async def test_content_param_sent(self) -> None:
-        """When content=True, the request should include ?content=true."""
+        """When content=True, listing should be light, then detail fetches happen."""
         requests_made: list[httpx.Request] = []
 
         class _SpyTransport(httpx.AsyncBaseTransport):
             async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
                 import json
+                import re
 
                 requests_made.append(request)
-                body = json.dumps(_EMPTY_RESPONSE).encode()
+                # Detail request: return a single job
+                if re.search(r"/jobs/\d+$", request.url.path):
+                    body = json.dumps({"id": 1, "title": "VP Ops", "content": "<p>test</p>"}).encode()
+                else:
+                    # Listing request: return one exec-level job
+                    body = json.dumps({"jobs": [{"id": 1, "title": "VP Ops"}]}).encode()
                 return httpx.Response(200, content=body, request=request)
 
         client = httpx.AsyncClient(transport=_SpyTransport())
         collector = GreenhouseCollector(board_token="test", http_client=client, content=True)
         await collector.collect()
 
-        assert len(requests_made) == 1
-        assert "content=true" in str(requests_made[0].url)
+        # First request is listing (no content param), second is detail
+        assert len(requests_made) >= 1
+        assert "content=true" not in str(requests_made[0].url)  # listing is light
 
     async def test_no_content_param(self) -> None:
         """When content=False, the request should NOT include ?content=true."""

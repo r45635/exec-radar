@@ -26,7 +26,7 @@ class TargetProfile(BaseModel):
         default="",
         description=(
             "Named source set to use when collecting jobs for this "
-            "profile (e.g. 'semiconductor_exec'). Empty means default."
+            "profile (e.g. 'semiconductor_exec_core'). Empty means default."
         ),
     )
 

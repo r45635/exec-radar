@@ -86,8 +86,8 @@ class TestBuildCollectorSelector:
         """Greenhouse without a board token should use default semiconductor boards."""
         c = build_collector("greenhouse")
         assert isinstance(c, CompositeCollector)
-        assert "lattice" in c.source_name
-        assert "tenstorrent" in c.source_name
+        assert "samsungsemiconductor" in c.source_name
+        assert "anellophotonics" in c.source_name
 
     def test_greenhouse_multi_boards(self) -> None:
         """Comma-separated boards should produce a CompositeCollector."""
@@ -109,16 +109,16 @@ class TestBuildCollectorSelector:
 
     def test_source_set_creates_composite(self) -> None:
         """build_collector with a source_set should produce a CompositeCollector."""
-        c = build_collector("greenhouse", source_set="semiconductor_exec")
+        c = build_collector("greenhouse", source_set="semiconductor_exec_core")
         assert isinstance(c, CompositeCollector)
-        assert "lattice" in c.source_name
+        assert "samsungsemiconductor" in c.source_name
 
     def test_source_set_includes_lever_ashby(self) -> None:
         """Source sets with lever/ashby boards should include them."""
-        c = build_collector("greenhouse", source_set="semiconductor_exec")
+        c = build_collector("greenhouse", source_set="semiconductor_exec_core")
         assert isinstance(c, CompositeCollector)
         # Should include Greenhouse + Lever + Ashby sources
-        assert "greenhouse:lattice" in c.source_name
+        assert "greenhouse:samsungsemiconductor" in c.source_name
         assert "lever:" in c.source_name
         assert "ashby" in c.source_name
 
@@ -127,10 +127,10 @@ class TestBuildCollectorSelector:
         c = build_collector(
             "greenhouse",
             greenhouse_board="discord",
-            source_set="deeptech_hardware",
+            source_set="broad_hardware_supply_chain",
         )
         assert isinstance(c, CompositeCollector)
-        assert "graphcore" in c.source_name
+        assert "andurilindustries" in c.source_name
 
     def test_source_set_unknown_raises(self) -> None:
         """An unknown source_set should raise ValueError."""
@@ -245,7 +245,7 @@ class TestMultiCollector:
         """Source set with lever/ashby should report as multi type."""
         from packages.services import describe_collector
 
-        c = build_collector("greenhouse", source_set="semiconductor_exec")
+        c = build_collector("greenhouse", source_set="semiconductor_exec_core")
         info = describe_collector(c)
         assert info["type"] == "multi"
         assert "greenhouse" in info["active_types"]

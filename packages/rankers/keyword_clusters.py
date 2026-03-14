@@ -247,13 +247,19 @@ def score_clusters(
 def aggregate_cluster_score(cluster_scores: dict[str, float]) -> float:
     """Weight-average the per-cluster scores into a single dimension value.
 
+    Only clusters with at least one keyword hit contribute to the
+    denominator, so unrelated clusters (e.g. semiconductor clusters
+    for a non-semiconductor job) don't dilute the score.
+
     Returns:
         A float in [0, 1].
     """
-    total_weight = sum(c.weight for c in CLUSTERS)
-    if total_weight == 0.0:
+    active_weight = sum(
+        c.weight for c in CLUSTERS if cluster_scores.get(c.name, 0.0) > 0
+    )
+    if active_weight == 0.0:
         return 0.0
     weighted = sum(
         cluster_scores.get(c.name, 0.0) * c.weight for c in CLUSTERS
     )
-    return min(1.0, weighted / total_weight)
+    return min(1.0, weighted / active_weight)

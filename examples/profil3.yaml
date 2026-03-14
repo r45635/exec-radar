@@ -1,6 +1,6 @@
 name: vincent_broad_industrial_leadership
 description: Broader senior industrial leadership profile across advanced electronics, supply chain, manufacturing, quality, and operational transformation.
-preferred_source_set: broad_exec_ops
+preferred_source_set: broad_hardware_supply_chain
 
 target_titles:
   - chief operating officer

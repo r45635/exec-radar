@@ -7,9 +7,11 @@ on the main application at ``/dashboard``.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -44,12 +46,25 @@ from packages.services import (
     build_pipeline_components,
     describe_collector,
 )
-from packages.source_sets import source_set_names
+from packages.source_sets import (
+    describe_all_source_sets,
+    describe_source_set,
+    source_set_names,
+)
 from packages.version import __version__
 
 logger = logging.getLogger(__name__)
 
 _DIR = Path(__file__).resolve().parent
+
+# ── Pipeline result cache (avoids re-fetching from external APIs) ──
+_CACHE_TTL = float(os.getenv("EXEC_RADAR_CACHE_TTL", "300"))  # seconds
+_pipeline_cache: dict[str, object] = {"ts": 0.0, "key": None, "jobs": [], "collector_info": {}}
+
+
+def _invalidate_pipeline_cache() -> None:
+    """Force the next dashboard load to re-fetch from collectors."""
+    _pipeline_cache["ts"] = 0.0
 
 
 def _static_hash() -> str:
@@ -76,14 +91,68 @@ _EXAMPLES_DIR = _PROJECT_ROOT / "examples"
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI) -> AsyncIterator[None]:
-    """Seed example profiles into the DB on startup if missing."""
+    """Seed example profiles and start background pipeline refresh."""
     session = await _profiles_session()
     async with session:
         count = await seed_profiles_from_directory(session, _EXAMPLES_DIR)
         if count:
             await session.commit()
             logger.info("Auto-seeded %d profile(s) from %s", count, _EXAMPLES_DIR)
+
+    # Start background refresh task
+    refresh_task = asyncio.create_task(_background_refresh_loop())
     yield
+    refresh_task.cancel()
+    try:
+        await refresh_task
+    except asyncio.CancelledError:
+        pass
+
+
+async def _background_refresh_loop() -> None:
+    """Periodically refresh the pipeline cache in the background.
+
+    Runs an initial refresh immediately (so the first page load is fast),
+    then repeats every ``_CACHE_TTL`` seconds.
+    """
+    while True:
+        try:
+            await _refresh_pipeline_cache()
+        except Exception:
+            logger.exception("Background pipeline refresh failed")
+        await asyncio.sleep(_CACHE_TTL)
+
+
+async def _refresh_pipeline_cache() -> None:
+    """Run the pipeline and update the in-memory cache."""
+    session = await _profiles_session()
+    async with session:
+        active_record = await get_active_profile(session)
+        active_profile = await resolve_active_target_profile(session)
+        profile_name = active_record.name if active_record else None
+
+    cache_key = profile_name or "__default__"
+    collector, normalizer, ranker = build_pipeline_components(
+        profile=active_profile,
+    )
+    collector_info = describe_collector(collector)
+
+    t0 = time.monotonic()
+    jobs = await run_pipeline(
+        collector=collector,
+        normalizer=normalizer,
+        ranker=ranker,
+    )
+    elapsed = time.monotonic() - t0
+    _pipeline_cache.update(
+        ts=time.monotonic(), key=cache_key, jobs=jobs, collector_info=collector_info,
+    )
+    logger.info(
+        "Background refresh: %d jobs scored in %.1fs (profile=%s)",
+        len(jobs),
+        elapsed,
+        profile_name,
+    )
 
 
 dashboard_app = FastAPI(
@@ -173,7 +242,7 @@ async def index(request: Request) -> HTMLResponse:
     health_version = __version__
     health_error = ""
 
-    # ── Jobs ───────────────────────────────────────────────
+    # ── Jobs (with TTL cache) ─────────────────────────────
     jobs: list = []
     jobs_error = ""
     active_profile_name: str | None = None
@@ -185,15 +254,39 @@ async def index(request: Request) -> HTMLResponse:
             active_profile = await resolve_active_target_profile(session)
             if active_record is not None:
                 active_profile_name = active_record.name
-        collector, normalizer, ranker = build_pipeline_components(
-            profile=active_profile,
-        )
-        collector_info = describe_collector(collector)
-        jobs = await run_pipeline(
-            collector=collector,
-            normalizer=normalizer,
-            ranker=ranker,
-        )
+
+        cache_key = active_profile_name or "__default__"
+        now = time.monotonic()
+        cache_age = now - _pipeline_cache["ts"]  # type: ignore[operator]
+
+        if _pipeline_cache["key"] == cache_key and _pipeline_cache["jobs"]:
+            # Serve from cache (even if stale — background task refreshes)
+            jobs = _pipeline_cache["jobs"]  # type: ignore[assignment]
+            collector_info = _pipeline_cache["collector_info"]  # type: ignore[assignment]
+            if cache_age < _CACHE_TTL:
+                logger.info("Dashboard: serving %d cached jobs (age %.0fs)", len(jobs), cache_age)
+            else:
+                logger.info("Dashboard: serving %d stale-but-available jobs (age %.0fs, bg refresh pending)", len(jobs), cache_age)
+        elif _pipeline_cache["jobs"]:
+            # Profile changed — serve stale data, background will refresh
+            jobs = _pipeline_cache["jobs"]  # type: ignore[assignment]
+            collector_info = _pipeline_cache["collector_info"]  # type: ignore[assignment]
+            logger.info("Dashboard: serving %d jobs (profile changed, bg refresh pending)", len(jobs))
+            # Trigger immediate background refresh for the new profile
+            asyncio.create_task(_refresh_pipeline_cache())
+        else:
+            # First load — cache is empty, must wait for background task
+            # Run pipeline inline as fallback
+            collector, normalizer, ranker = build_pipeline_components(
+                profile=active_profile,
+            )
+            collector_info = describe_collector(collector)
+            jobs = await run_pipeline(
+                collector=collector,
+                normalizer=normalizer,
+                ranker=ranker,
+            )
+            _pipeline_cache.update(ts=now, key=cache_key, jobs=jobs, collector_info=collector_info)
     except Exception as exc:
         logger.exception("Dashboard: failed to load jobs")
         jobs_error = str(exc)
@@ -286,6 +379,7 @@ async def profiles_new_form(request: Request) -> HTMLResponse:
             "profile": None,
             "error": "",
             "source_set_names": source_set_names(),
+            "source_sets_info": describe_all_source_sets(),
         },
     )
 
@@ -366,6 +460,7 @@ async def profiles_create(
                 "profile": None,
                 "error": str(exc),
                 "source_set_names": source_set_names(),
+                "source_sets_info": describe_all_source_sets(),
             },
             status_code=422,
         )
@@ -391,10 +486,12 @@ async def profiles_create(
                     "profile": None,
                     "error": str(exc),
                     "source_set_names": source_set_names(),
+                    "source_sets_info": describe_all_source_sets(),
                 },
                 status_code=409,
             )
 
+    _invalidate_pipeline_cache()
     return RedirectResponse("/dashboard/profiles", status_code=303)
 
 
@@ -431,6 +528,7 @@ async def profiles_edit_form(
             "profile": profile_ctx,
             "error": "",
             "source_set_names": source_set_names(),
+            "source_sets_info": describe_all_source_sets(),
         },
     )
 
@@ -514,6 +612,7 @@ async def profiles_update(
                 "profile": {"id": profile_id, "name": name, "description": description},
                 "error": str(exc),
                 "source_set_names": source_set_names(),
+                "source_sets_info": describe_all_source_sets(),
             },
             status_code=422,
         )
@@ -529,6 +628,7 @@ async def profiles_update(
         )
         await session.commit()
 
+    _invalidate_pipeline_cache()
     return RedirectResponse("/dashboard/profiles", status_code=303)
 
 
@@ -546,6 +646,7 @@ async def profiles_activate(profile_id: str) -> RedirectResponse:
             await session.commit()
         except ValueError:
             return RedirectResponse("/dashboard/profiles", status_code=303)
+    _invalidate_pipeline_cache()
     return RedirectResponse("/dashboard/?profile_activated=1", status_code=303)
 
 
@@ -604,11 +705,44 @@ async def profiles_detail(
             else "",
         }
 
+    # Resolve source-set info for the profile
+    ss_name = profile_data.get("preferred_source_set")
+    source_set_info = None
+    if ss_name:
+        try:
+            source_set_info = describe_source_set(ss_name)
+        except KeyError:
+            pass
+
     return templates.TemplateResponse(
         request,
         "profile_detail.html",
-        {"version": __version__, "profile": profile_ctx},
+        {
+            "version": __version__,
+            "profile": profile_ctx,
+            "source_set_info": source_set_info,
+        },
     )
+
+
+# ---------------------------------------------------------------------------
+# Source set preview (JSON API for dynamic UI + HTML preview)
+# ---------------------------------------------------------------------------
+
+
+@dashboard_app.get("/api/source-sets")
+async def api_source_sets() -> list[dict]:
+    """Return all source set descriptions as JSON."""
+    return describe_all_source_sets()
+
+
+@dashboard_app.get("/api/source-sets/{name}")
+async def api_source_set_detail(name: str) -> dict:
+    """Return a single source set description as JSON."""
+    try:
+        return describe_source_set(name)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Source set {name!r} not found") from None
 
 
 # ---------------------------------------------------------------------------

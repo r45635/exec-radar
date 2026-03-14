@@ -1,6 +1,6 @@
 name: vincent_deeptech_mems_photonics_ops
 description: Executive and senior operations profile for deeptech hardware, MEMS, photonics, industrial scale-up, and advanced manufacturing environments.
-preferred_source_set: deeptech_hardware
+preferred_source_set: photonics_mems_ops
 
 target_titles:
   - chief operating officer

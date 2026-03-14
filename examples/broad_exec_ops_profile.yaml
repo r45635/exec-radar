@@ -1,9 +1,9 @@
 # Broad Executive Ops Profile  —  Exec Radar
 #
 # Casts a wider net across deep-tech, mobility, and healthcare
-# operations leadership.  Pairs with the 'broad_exec_ops' source set.
+# operations leadership.  Pairs with the 'broad_hardware_supply_chain' source set.
 
-preferred_source_set: broad_exec_ops
+preferred_source_set: broad_hardware_supply_chain
 
 # ── Title preferences ─────────────────────────────────────────────────
 target_titles:

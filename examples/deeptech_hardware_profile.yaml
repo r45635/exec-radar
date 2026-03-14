@@ -1,9 +1,9 @@
 # Deep-Tech / Hardware Profile  —  Exec Radar
 #
 # Targets VP-level operations roles at AI-chip and deep-tech hardware
-# companies.  Pairs with the 'deeptech_hardware' source set.
+# companies.  Pairs with the 'photonics_mems_ops' source set.
 
-preferred_source_set: deeptech_hardware
+preferred_source_set: photonics_mems_ops
 
 # ── Title preferences ─────────────────────────────────────────────────
 target_titles:

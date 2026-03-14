@@ -22,9 +22,9 @@
 
 # ── Source set preference ─────────────────────────────────────────────
 # Optional: reference a named source set to control which Greenhouse
-# boards are scanned.  Available: semiconductor_exec, deeptech_hardware,
-# broad_exec_ops.  Leave empty to use default boards.
-# preferred_source_set: semiconductor_exec
+# boards are scanned.  Available: semiconductor_exec_core, photonics_mems_ops,
+# broad_hardware_supply_chain.  Leave empty to use default boards.
+# preferred_source_set: semiconductor_exec_core
 
 # ── Title preferences ─────────────────────────────────────────────────
 # Case-insensitive.  An exact match on a target title scores 1.0;

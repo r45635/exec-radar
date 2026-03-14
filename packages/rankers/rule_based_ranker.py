@@ -9,6 +9,8 @@ breakdowns and structured ``why_matched`` / ``why_penalized`` /
 
 from __future__ import annotations
 
+import re as _re
+
 from packages.normalizers.title_families import (
     NON_OPS_CSUITE,
     OPERATIONS_FAMILIES,
@@ -173,7 +175,7 @@ class RuleBasedRanker(BaseRanker):
             "geography": geo_score,
             "keyword_clusters": kw_cluster_score,
         }
-        overall = (
+        raw_sum = (
             p.weight_title * title_score
             + p.weight_seniority * seniority_score
             + p.weight_industry * industry_score
@@ -181,8 +183,15 @@ class RuleBasedRanker(BaseRanker):
             + p.weight_geography * geo_score
             + p.weight_keyword_clusters * kw_cluster_score
         )
+        # Normalise so weights that sum < 1.0 still use the full [0,1] range
+        weight_total = (
+            p.weight_title + p.weight_seniority + p.weight_industry
+            + p.weight_scope + p.weight_geography + p.weight_keyword_clusters
+        )
+        overall = raw_sum / weight_total if weight_total > 0 else raw_sum
 
         # ── Post-scoring penalties ────────────────────────────────
+        pre_penalty = overall
         overall = self._apply_penalties(
             overall,
             job,
@@ -196,6 +205,10 @@ class RuleBasedRanker(BaseRanker):
             red_flags,
             geo_score=geo_score,
         )
+        # Penalty floor: never reduce below 35% of pre-penalty score
+        penalty_floor = pre_penalty * 0.35
+        if overall < penalty_floor and pre_penalty > 0:
+            overall = penalty_floor
 
         # ── Semiconductor-like bonus ─────────────────────────────
         if job.is_semiconductor_like:
@@ -401,18 +414,22 @@ class RuleBasedRanker(BaseRanker):
         # -- 6. Geography mismatch penalty ------------------------
         #    When the profile specifies target locations/geographies
         #    AND the job has a known location that doesn't match,
-        #    apply a heavy penalty to push non-matching jobs down.
+        #    apply a moderate penalty to push non-matching jobs down.
+        #    Skip if the profile gives geography zero weight — it
+        #    already signals geography is unimportant.
         has_geo_prefs = bool(
             profile.target_locations or profile.target_geographies
         )
+        geo_weight_zero = profile.weight_geography == 0.0
         job_has_location = bool(job.location and job.location.strip())
-        if has_geo_prefs and job_has_location and geo_score <= 0.3:
-            overall *= 0.30
-            why_penalized.append("Location outside target geographies")
-            red_flags.append("Wrong geography")
-        elif has_geo_prefs and job_has_location and geo_score <= 0.5:
-            overall *= 0.60
-            why_penalized.append("Uncertain geography match")
+        if has_geo_prefs and job_has_location and not geo_weight_zero:
+            if geo_score <= 0.3:
+                overall *= 0.65
+                why_penalized.append("Location outside target geographies")
+                red_flags.append("Wrong geography")
+            elif geo_score <= 0.5:
+                overall *= 0.85
+                why_penalized.append("Uncertain geography match")
 
         # -- 7. Exec semiconductor bonus --------------------------
         #    Reward postings that combine multiple high-value signals
@@ -518,14 +535,25 @@ class RuleBasedRanker(BaseRanker):
             return 1.0, notes
 
         # Substring / partial target match
+        # Guard against short acronyms (e.g. "coo" matching "coordinator")
+        # by requiring word boundaries for targets shorter than 5 chars.
         for target in target_titles:
-            if target in lower or lower in target:
+            if len(target) < 5:
+                # Use word boundary matching for short targets
+                if _re.search(r'\b' + _re.escape(target) + r'\b', lower):
+                    notes.append("Strong title match")
+                    return 1.0, notes
+            elif target in lower or lower in target:
                 notes.append("Strong title match")
                 return 1.0, notes
 
         # Adjacent title match
         for adj in adjacent_titles:
-            if adj in lower or lower in adj:
+            if len(adj) < 5:
+                if _re.search(r'\b' + _re.escape(adj) + r'\b', lower):
+                    notes.append("Adjacent title match")
+                    return 0.6, notes
+            elif adj in lower or lower in adj:
                 notes.append("Adjacent title match")
                 return 0.6, notes
 
@@ -549,11 +577,11 @@ class RuleBasedRanker(BaseRanker):
         target: frozenset[SeniorityLevel],
         acceptable: frozenset[SeniorityLevel],
     ) -> float:
-        """Return 1.0 for target-level, 0.4 for acceptable, 0.2 otherwise."""
+        """Return 1.0 for target-level, 0.7 for acceptable, 0.2 otherwise."""
         if level in target:
             return 1.0
         if level in acceptable:
-            return 0.4
+            return 0.7
         return 0.2
 
     @staticmethod
@@ -563,18 +591,45 @@ class RuleBasedRanker(BaseRanker):
         target_industries: frozenset[str],
         adjacent_industries: frozenset[str],
     ) -> float:
-        """Score industry fit from tags and description."""
+        """Score industry fit from tags and description.
+
+        Matching logic:
+        - Each target/adjacent industry term is checked as a substring
+          of the combined text.  Multi-word terms are also checked by
+          their individual significant words (≥4 chars) to catch
+          partial matches (e.g. "aerospace hardware" matches "aerospace").
+        - Scoring uses a *any-match-is-meaningful* approach: hitting at
+          least one target gives 0.5; additional hits add up to 0.7.
+          Adjacent hits add up to 0.3.  Total is capped at 1.0.
+        """
         combined = " ".join(tags).lower() + " " + description.lower()
+
+        def _count_hits(terms: frozenset[str]) -> int:
+            hits = 0
+            for raw in terms:
+                term = raw.lower()
+                if term in combined:
+                    hits += 1
+                    continue
+                # Fallback: check individual significant words
+                words = [w for w in term.split() if len(w) >= 4]
+                if words and any(w in combined for w in words):
+                    hits += 1
+            return hits
+
         target_lower = {i.lower() for i in target_industries}
         adjacent_lower = {i.lower() for i in adjacent_industries}
 
-        target_hits = sum(1 for ind in target_lower if ind in combined)
-        adjacent_hits = sum(1 for ind in adjacent_lower if ind in combined)
+        target_hits = _count_hits(target_industries)
+        adjacent_hits = _count_hits(adjacent_industries)
 
         score = 0.0
-        if target_lower:
-            score += 0.7 * min(1.0, target_hits / max(1, len(target_lower)))
-        if adjacent_lower:
+        if target_lower and target_hits:
+            # First hit = 0.5, additional hits add up to 0.2 more
+            score += 0.5 + 0.2 * min(
+                1.0, (target_hits - 1) / max(1, len(target_lower) - 1)
+            )
+        if adjacent_lower and adjacent_hits:
             score += 0.3 * min(1.0, adjacent_hits / max(1, len(adjacent_lower)))
         return min(1.0, score)
 
@@ -629,6 +684,64 @@ class RuleBasedRanker(BaseRanker):
             return "regional"
         return "regional"  # default assumption
 
+    # US state abbreviations → country mapping for geography matching
+    _US_STATE_ABBREVS: frozenset[str] = frozenset({
+        "al", "ak", "az", "ar", "ca", "co", "ct", "de", "fl", "ga",
+        "hi", "id", "il", "in", "ia", "ks", "ky", "la", "me", "md",
+        "ma", "mi", "mn", "ms", "mo", "mt", "ne", "nv", "nh", "nj",
+        "nm", "ny", "nc", "nd", "oh", "ok", "or", "pa", "ri", "sc",
+        "sd", "tn", "tx", "ut", "vt", "va", "wa", "wv", "wi", "wy",
+        "dc",
+    })
+
+    _US_STATE_NAMES: frozenset[str] = frozenset({
+        "alabama", "alaska", "arizona", "arkansas", "california",
+        "colorado", "connecticut", "delaware", "florida", "georgia",
+        "hawaii", "idaho", "illinois", "indiana", "iowa", "kansas",
+        "kentucky", "louisiana", "maine", "maryland", "massachusetts",
+        "michigan", "minnesota", "mississippi", "missouri", "montana",
+        "nebraska", "nevada", "new hampshire", "new jersey",
+        "new mexico", "new york", "north carolina", "north dakota",
+        "ohio", "oklahoma", "oregon", "pennsylvania", "rhode island",
+        "south carolina", "south dakota", "tennessee", "texas", "utah",
+        "vermont", "virginia", "washington", "west virginia",
+        "wisconsin", "wyoming", "district of columbia",
+    })
+
+    # European country names for geography matching
+    _EUROPEAN_COUNTRIES: frozenset[str] = frozenset({
+        "austria", "belgium", "bulgaria", "croatia", "czech republic",
+        "denmark", "estonia", "finland", "france", "germany", "greece",
+        "hungary", "ireland", "italy", "latvia", "lithuania",
+        "luxembourg", "netherlands", "norway", "poland", "portugal",
+        "romania", "slovakia", "slovenia", "spain", "sweden",
+        "switzerland", "united kingdom", "uk",
+    })
+
+    @staticmethod
+    def _infer_country(location: str) -> str | None:
+        """Infer country from a location string like 'Austin, TX'."""
+        loc_lower = location.lower().strip()
+        # Check for US state abbreviations (e.g. "Austin, TX" or "CA")
+        parts = [p.strip() for p in loc_lower.replace(",", " ").split()]
+        for part in parts:
+            if part in RuleBasedRanker._US_STATE_ABBREVS:
+                return "united states"
+        # Check for US state full names
+        for state in RuleBasedRanker._US_STATE_NAMES:
+            if state in loc_lower:
+                return "united states"
+        # Check for European countries
+        for country in RuleBasedRanker._EUROPEAN_COUNTRIES:
+            if country in loc_lower:
+                if country == "uk":
+                    return "united kingdom"
+                return country
+        # Check explicit US markers
+        if "united states" in loc_lower or "usa" in loc_lower or "u.s." in loc_lower:
+            return "united states"
+        return None
+
     @staticmethod
     def _score_geography(
         remote_policy: RemotePolicy,
@@ -640,6 +753,12 @@ class RuleBasedRanker(BaseRanker):
         """Score geography / remote-policy fit."""
         if remote_policy in preferred:
             return 1.0
+        # When remote policy is unknown but all policies are accepted,
+        # don't penalize — use location matching instead of returning
+        # a low default.
+        all_policies_preferred = {
+            RemotePolicy.REMOTE, RemotePolicy.HYBRID, RemotePolicy.ONSITE,
+        }.issubset(preferred)
         if location:
             loc_lower = location.lower()
             if target_locations and any(
@@ -650,10 +769,27 @@ class RuleBasedRanker(BaseRanker):
                 tg.lower() in loc_lower for tg in target_geographies
             ):
                 return 0.7
+            # Infer country from location (e.g. "Austin, TX" → "united states")
+            inferred = RuleBasedRanker._infer_country(location)
+            if inferred:
+                geo_lower = {tg.lower() for tg in target_geographies}
+                # Match inferred country or broader region
+                if inferred in geo_lower:
+                    return 0.7
+                if inferred == "united states" and ("usa" in geo_lower or "us" in geo_lower):
+                    return 0.7
+                # Check if inferred European country matches "europe" target
+                if inferred in RuleBasedRanker._EUROPEAN_COUNTRIES and "europe" in geo_lower:
+                    return 0.65
             # Location is known but doesn't match any target — mismatch
+            # but soften if all remote policies are acceptable
             if target_locations or target_geographies:
+                if all_policies_preferred:
+                    return 0.4  # softer penalty when remote is not the issue
                 return 0.2
         if remote_policy == RemotePolicy.UNKNOWN:
+            if all_policies_preferred:
+                return 0.6  # benign unknown when all policies accepted
             return 0.5
         return 0.3
 

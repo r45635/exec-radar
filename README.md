@@ -8,8 +8,10 @@ Exec Radar continuously scans public job sources for executive and senior operat
 
 - 🎯 **Smart Matching** — Scores job postings against your target profile (titles, seniority, locations, skills)
 - 🌐 **Multi-Source** — Fetches from Greenhouse, Lever, and Ashby ATS platforms in parallel
+- � **Executive Pre-Filter** — Regex-based title filter eliminates ~68% of irrelevant postings (interns, engineers, analysts) before expensive processing
+- ⚡ **Two-Phase Collection** — Greenhouse boards are fetched in a light listing first; only executive-level titles trigger individual detail requests, dramatically reducing bandwidth
+- 🔄 **Background Auto-Refresh** — Pipeline runs automatically at startup and every 5 minutes in the background; the dashboard never blocks on data collection
 - 📊 **Interactive Dashboard** — Table and card views, filters, search, favorites, detailed panels
-- 🔄 **Real-Time Updates** — Continuous pipeline to keep opportunities fresh
 - 🔍 **State Tracking** — Automatically marks jobs as new, seen, or updated (based on content changes)
 - 💾 **Persistence** — Optional database storage for historical tracking
 - 🚀 **Simple Deployment** — Docker-ready, single API server with embedded dashboard
@@ -37,6 +39,16 @@ Exec Radar scores each posting across **six weighted dimensions**:
 | `executive_operations_leadership` | P&L, transformation, lean, six sigma, operational excellence |
 | `supply_chain_industrialization` | Supply chain, NPI, industrialization, ramp-up, S&OP |
 
+### Executive Title Pre-Filter
+
+Before normalization and scoring, a fast regex-based filter (`packages/filters/`) screens every posting title:
+
+- **Keep** — Titles containing VP, Director, Head of, Chief, SVP, GM, President, Executive, Principal, Managing Director, etc.
+- **Reject** — Titles matching junior markers (intern, trainee, coordinator, clerk) or mid-level markers (analyst, specialist, engineer, scientist, developer) unless overridden by an exec prefix
+- **Ambiguous** — Unknown titles are kept (fail-open) to avoid missing unusual executive roles
+
+This eliminates ~68% of noise before any expensive processing. Edge cases like "Associate Director" and "Assistant Vice President" are correctly kept.
+
 ### Stricter Scoring Penalties
 
 The ranker applies post-scoring penalties to reduce noise:
@@ -56,9 +68,9 @@ Pre-configured board collections you can assign to a profile:
 
 | Source Set | Focus | Sources |
 |------------|-------|--------|
-| `semiconductor_exec` | IDM, fabless, foundry, OSAT execs | 12 Greenhouse + 2 Lever + 2 Ashby |
-| `deeptech_hardware` | AI-chip & advanced computing | 8 Greenhouse + 2 Lever + 2 Ashby |
-| `broad_exec_ops` | Cross-industry exec operations | 10 Greenhouse + 2 Lever + 2 Ashby |
+| `semiconductor_exec_core` | IDM, fabless, foundry, OSAT execs | 8 Greenhouse + 2 Lever + 1 Ashby |
+| `photonics_mems_ops` | Photonics, MEMS & deeptech hardware | 3 Greenhouse + 2 Lever + 2 Ashby |
+| `broad_hardware_supply_chain` | Cross-industry hardware & supply chain | 7 Greenhouse + 2 Lever + 1 Ashby |
 
 Set via profile dropdown, `preferred_source_set` in YAML, or `EXEC_RADAR_SOURCE_SET` env var.
 
@@ -187,7 +199,7 @@ docker run -p 8000:8000 \
 | `EXEC_RADAR_GREENHOUSE_BOARD` | — | Single Greenhouse board token (fallback) |
 | `EXEC_RADAR_LEVER_COMPANY` | — | Lever company slug(s), comma-separated |
 | `EXEC_RADAR_ASHBY_COMPANY` | — | Ashby company slug(s), comma-separated |
-| `EXEC_RADAR_SOURCE_SET` | — | Named source set (`semiconductor_exec`, `deeptech_hardware`, `broad_exec_ops`) |
+| `EXEC_RADAR_SOURCE_SET` | — | Named source set (`semiconductor_exec_core`, `photonics_mems_ops`, `broad_hardware_supply_chain`) |
 | `EXEC_RADAR_TARGET_PROFILE` | — | Path to YAML profile file |
 | `EXEC_RADAR_DATABASE_URL` | — | PostgreSQL or MySQL URL for persistence |
 | `LOG_LEVEL` | `INFO` | Logging verbosity |
@@ -322,7 +334,7 @@ Use the API to filter: `curl http://localhost:8000/jobs | jq '.jobs[] | select(.
 A: Yes. See [DEVELOPMENT.md](DEVELOPMENT.md#adding-a-collector) to build a new collector.
 
 **Q: How often are jobs updated?**
-A: In current version, manually on-demand via `apps.worker.main`. Scheduled polling coming soon.
+A: The dashboard automatically refreshes the pipeline in the background at startup and every 5 minutes (`_CACHE_TTL`). The page always serves cached data instantly — no waiting for collection.
 
 ## License
 

@@ -635,4 +635,16 @@
     applyStateClasses();
     render();
   })();
+
+  // ── Source-set dropdown description hint ──────────────────
+  const ssSelect = document.getElementById("preferred_source_set");
+  const ssHint = document.getElementById("source-set-hint");
+  if (ssSelect && ssHint) {
+    function showSSHint() {
+      const opt = ssSelect.options[ssSelect.selectedIndex];
+      ssHint.textContent = opt && opt.dataset.desc ? opt.dataset.desc : "";
+    }
+    ssSelect.addEventListener("change", showSSHint);
+    showSSHint();
+  }
 })();

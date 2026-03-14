@@ -27,6 +27,43 @@
 <div class="profile-detail-meta">
     <span class="source-badge">Source set: {{ profile.data.get('preferred_source_set') | replace('_',' ') | title }}</span>
 </div>
+{% if source_set_info %}
+<div class="source-set-preview">
+    <h3>Source Set Preview</h3>
+    <p class="profile-detail-desc">{{ source_set_info.description }}</p>
+    <div class="source-set-stats">
+        <span class="stat-badge">{{ source_set_info.total_sources }} sources</span>
+        {% for ats, count in source_set_info.by_ats.items() %}
+        {% if count > 0 %}
+        <span class="stat-badge ats-{{ ats }}">{{ ats | title }}: {{ count }}</span>
+        {% endif %}
+        {% endfor %}
+    </div>
+    {% if source_set_info.focus_tags %}
+    <div class="source-set-tags">
+        {% for tag in source_set_info.focus_tags %}
+        <span class="tag focus-tag">{{ tag }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <table class="source-set-table">
+        <thead>
+            <tr><th>Company</th><th>ATS</th><th>Priority</th><th>Risk</th><th>Regions</th></tr>
+        </thead>
+        <tbody>
+            {% for src in source_set_info.sources %}
+            <tr>
+                <td>{{ src.display_name }}</td>
+                <td><span class="ats-label ats-{{ src.ats_type }}">{{ src.ats_type | title }}</span></td>
+                <td>{{ src.priority }}</td>
+                <td><span class="risk-{{ src.noise_risk }}">{{ src.noise_risk }}</span></td>
+                <td>{{ src.regions | join(', ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
 {% endif %}
 
 <div class="profile-detail-sections">

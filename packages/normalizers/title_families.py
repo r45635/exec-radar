@@ -195,6 +195,61 @@ _TITLE_FAMILIES: list[tuple[str, list[re.Pattern[str]]]] = [
             ),
         ],
     ),
+    (
+        "HEAD_PRODUCTION",
+        [
+            re.compile(
+                r"\b(?:head\s+of|director\s+(?:of\s+)?|vp\s+(?:of\s+)?|"
+                r"vice\s+president\s+(?:of\s+)?|svp\s+(?:of\s+)?)\s*"
+                r"product(?:ion)?(?:\s|$)",
+                re.IGNORECASE,
+            ),
+        ],
+    ),
+    (
+        "HEAD_SOURCING",
+        [
+            re.compile(
+                r"\b(?:head\s+of|director\s+(?:of\s+)?|vp\s+(?:of\s+)?|"
+                r"vice\s+president\s+(?:of\s+)?|svp\s+(?:of\s+)?)\s*"
+                r"(?:strategic\s+)?(?:sourcing|procurement)",
+                re.IGNORECASE,
+            ),
+        ],
+    ),
+    (
+        "HEAD_INDUSTRIALIZATION",
+        [
+            re.compile(
+                r"\b(?:head\s+of|director\s+(?:of\s+)?|vp\s+(?:of\s+)?|"
+                r"vice\s+president\s+(?:of\s+)?|svp\s+(?:of\s+)?)\s*"
+                r"industr(?:ial|ization)",
+                re.IGNORECASE,
+            ),
+        ],
+    ),
+    (
+        "HEAD_NPI",
+        [
+            re.compile(
+                r"\b(?:head\s+of|director\s+(?:of\s+)?|vp\s+(?:of\s+)?|"
+                r"vice\s+president\s+(?:of\s+)?)\s*"
+                r"(?:new\s+product\s+introduction|npi)",
+                re.IGNORECASE,
+            ),
+        ],
+    ),
+    (
+        "HEAD_LOGISTICS",
+        [
+            re.compile(
+                r"\b(?:head\s+of|director\s+(?:of\s+)?|vp\s+(?:of\s+)?|"
+                r"vice\s+president\s+(?:of\s+)?|svp\s+(?:of\s+)?)\s*"
+                r"logist",
+                re.IGNORECASE,
+            ),
+        ],
+    ),
 ]
 
 # Families considered "operations-adjacent" for scoring purposes
@@ -212,6 +267,11 @@ OPERATIONS_FAMILIES: frozenset[str] = frozenset(
         "HEAD_TRANSFORMATION",
         "PLANT_DIRECTOR",
         "GM_OPERATIONS",
+        "HEAD_PRODUCTION",
+        "HEAD_SOURCING",
+        "HEAD_INDUSTRIALIZATION",
+        "HEAD_NPI",
+        "HEAD_LOGISTICS",
     }
 )
 

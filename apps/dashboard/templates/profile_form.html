@@ -27,13 +27,18 @@
                       placeholder="A short description of this profile">{{ profile.description if profile else '' }}</textarea>
         </div>
         <div class="form-group">
-            <label for="preferred_source_set">Source Set <span class="hint">(Greenhouse board collection)</span></label>
+            <label for="preferred_source_set">Source Set <span class="hint">(curated board collection)</span></label>
             <select id="preferred_source_set" name="preferred_source_set">
                 <option value="">Default boards</option>
                 {% for ss in source_set_names|default([]) %}
-                <option value="{{ ss }}" {% if profile and profile.data and profile.data.get('preferred_source_set') == ss %}selected{% endif %}>{{ ss | replace('_',' ') | title }}</option>
+                <option value="{{ ss }}"
+                        {% if profile and profile.data and profile.data.get('preferred_source_set') == ss %}selected{% endif %}
+                        data-desc="{% for info in source_sets_info|default([]) %}{% if info.name == ss %}{{ info.description }} ({{ info.total_sources }} sources){% endif %}{% endfor %}">
+                    {{ ss | replace('_',' ') | title }}
+                </option>
                 {% endfor %}
             </select>
+            <div id="source-set-hint" class="hint" style="margin-top: 0.25rem;"></div>
         </div>
     </fieldset>
 
@@ -189,32 +194,32 @@
         <div class="weights-grid">
             <div class="form-group">
                 <label for="weight_title">Title</label>
-                <input type="number" id="weight_title" name="weight_title" step="0.05" min="0" max="1"
+                <input type="number" id="weight_title" name="weight_title" step="0.01" min="0" max="1"
                        value="{{ profile.data.get('weight_title', 0.25) if profile and profile.data else 0.25 }}" />
             </div>
             <div class="form-group">
                 <label for="weight_seniority">Seniority</label>
-                <input type="number" id="weight_seniority" name="weight_seniority" step="0.05" min="0" max="1"
+                <input type="number" id="weight_seniority" name="weight_seniority" step="0.01" min="0" max="1"
                        value="{{ profile.data.get('weight_seniority', 0.15) if profile and profile.data else 0.15 }}" />
             </div>
             <div class="form-group">
                 <label for="weight_industry">Industry</label>
-                <input type="number" id="weight_industry" name="weight_industry" step="0.05" min="0" max="1"
+                <input type="number" id="weight_industry" name="weight_industry" step="0.01" min="0" max="1"
                        value="{{ profile.data.get('weight_industry', 0.15) if profile and profile.data else 0.15 }}" />
             </div>
             <div class="form-group">
                 <label for="weight_scope">Scope</label>
-                <input type="number" id="weight_scope" name="weight_scope" step="0.05" min="0" max="1"
+                <input type="number" id="weight_scope" name="weight_scope" step="0.01" min="0" max="1"
                        value="{{ profile.data.get('weight_scope', 0.10) if profile and profile.data else 0.10 }}" />
             </div>
             <div class="form-group">
                 <label for="weight_geography">Geography</label>
-                <input type="number" id="weight_geography" name="weight_geography" step="0.05" min="0" max="1"
+                <input type="number" id="weight_geography" name="weight_geography" step="0.01" min="0" max="1"
                        value="{{ profile.data.get('weight_geography', 0.10) if profile and profile.data else 0.10 }}" />
             </div>
             <div class="form-group">
                 <label for="weight_keyword_clusters">Keyword Clusters</label>
-                <input type="number" id="weight_keyword_clusters" name="weight_keyword_clusters" step="0.05" min="0" max="1"
+                <input type="number" id="weight_keyword_clusters" name="weight_keyword_clusters" step="0.01" min="0" max="1"
                        value="{{ profile.data.get('weight_keyword_clusters', 0.25) if profile and profile.data else 0.25 }}" />
             </div>
         </div>

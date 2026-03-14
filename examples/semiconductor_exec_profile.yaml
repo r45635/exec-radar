@@ -1,9 +1,9 @@
 # Semiconductor Executive Profile  —  Exec Radar
 #
 # Tuned for VP/SVP/COO-level operations roles at semiconductor companies.
-# Pairs with the 'semiconductor_exec' source set.
+# Pairs with the 'semiconductor_exec_core' source set.
 
-preferred_source_set: semiconductor_exec
+preferred_source_set: semiconductor_exec_core
 
 # ── Title preferences ─────────────────────────────────────────────────
 target_titles:

@@ -96,10 +96,10 @@ class TestRuleBasedRanker:
         assert score.title_match >= 0.5
 
     def test_seniority_director(self, ranker: RuleBasedRanker) -> None:
-        """Director-level should get a moderate seniority score (acceptable=0.4)."""
+        """Director-level should get a moderate seniority score (acceptable=0.7)."""
         job = _make_job(seniority=SeniorityLevel.DIRECTOR)
         score = ranker.score(job)
-        assert score.seniority_match == 0.4
+        assert score.seniority_match == 0.7
 
     def test_remote_preference(self, ranker: RuleBasedRanker) -> None:
         """Remote / hybrid roles should score higher on location."""
@@ -1142,14 +1142,14 @@ class TestGeographyPenalty:
 
 
 class TestTightenedSeniority:
-    """Acceptable seniority now returns 0.4 instead of 0.6."""
+    """Acceptable seniority now returns 0.7 instead of 0.4."""
 
-    def test_head_seniority_is_0_4(self) -> None:
-        """HEAD seniority should score 0.4."""
+    def test_head_seniority_is_0_7(self) -> None:
+        """HEAD seniority should score 0.7."""
         ranker = RuleBasedRanker()
         job = _make_job(seniority=SeniorityLevel.HEAD)
         score = ranker.score(job)
-        assert score.seniority_match == 0.4
+        assert score.seniority_match == 0.7
 
     def test_target_seniority_still_1_0(self) -> None:
         """VP seniority should still score 1.0."""
@@ -1157,6 +1157,77 @@ class TestTightenedSeniority:
         job = _make_job(seniority=SeniorityLevel.VP)
         score = ranker.score(job)
         assert score.seniority_match == 1.0
+
+
+class TestGeographyInference:
+    """Geography matching should infer US from state abbreviations."""
+
+    def test_us_state_abbrev_matches(self) -> None:
+        """A job in 'Austin, TX' should match 'united states' geography."""
+        ranker = RuleBasedRanker()
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="Austin, TX",
+            remote_policy=RemotePolicy.ONSITE,
+            tags=["operations", "manufacturing"],
+            description_plain="Lead global semiconductor operations.",
+        )
+        score = ranker.score(job)
+        assert score.location_match >= 0.65, (
+            f"US state should match target_geographies, got {score.location_match}"
+        )
+
+    def test_us_city_state_matches(self) -> None:
+        """A job in 'Mountain View, CA' should match 'united states'."""
+        ranker = RuleBasedRanker()
+        job = _make_job(
+            title="Head of Operations",
+            seniority=SeniorityLevel.HEAD,
+            location="Mountain View, CA",
+            remote_policy=RemotePolicy.ONSITE,
+            tags=["operations"],
+            description_plain="Semiconductor manufacturing operations.",
+        )
+        score = ranker.score(job)
+        assert score.location_match >= 0.65
+
+    def test_european_country_matches(self) -> None:
+        """A job in 'Munich, Germany' should match 'europe' geography."""
+        ranker = RuleBasedRanker()
+        job = _make_job(
+            title="Director of Operations",
+            seniority=SeniorityLevel.DIRECTOR,
+            location="Munich, Germany",
+            remote_policy=RemotePolicy.ONSITE,
+            tags=["operations"],
+            description_plain="Manufacturing operations.",
+        )
+        score = ranker.score(job)
+        # "germany" is in target_geographies directly
+        assert score.location_match >= 0.65
+
+
+class TestPenaltyFloor:
+    """Stacking penalties should not crush scores below a floor."""
+
+    def test_penalty_floor_prevents_zero(self) -> None:
+        """Even with many penalties a decent pre-penalty score stays above floor."""
+        ranker = RuleBasedRanker()
+        # A job that would trigger software + geo penalties
+        job = _make_job(
+            title="VP of Operations",
+            seniority=SeniorityLevel.VP,
+            location="Tokyo, Japan",
+            remote_policy=RemotePolicy.ONSITE,
+            tags=["software", "devops", "kubernetes", "operations"],
+            description_plain="Lead software operations and devops. Kubernetes docker.",
+        )
+        score = ranker.score(job)
+        # Should not be crushed to near-zero thanks to the floor
+        assert score.overall >= 0.05, (
+            f"Penalty floor should prevent very low scores, got {score.overall}"
+        )
 
 
 class TestNarrowScopePenalty:
@@ -1232,8 +1303,8 @@ class TestPreferredSourceSet:
 
     def test_custom_source_set(self) -> None:
         """Setting preferred_source_set should persist."""
-        p = TargetProfile(preferred_source_set="semiconductor_exec")
-        assert p.preferred_source_set == "semiconductor_exec"
+        p = TargetProfile(preferred_source_set="semiconductor_exec_core")
+        assert p.preferred_source_set == "semiconductor_exec_core"
 
 
 # ====================================================================

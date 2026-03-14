@@ -1,6 +1,6 @@
 name: vincent_semiconductor_executive_ops
 description: Executive profile focused on semiconductor operations, industrialization, supply chain, quality, and global manufacturing leadership.
-preferred_source_set: semiconductor_exec
+preferred_source_set: semiconductor_exec_core
 
 target_titles:
   - chief operating officer

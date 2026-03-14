@@ -1,84 +1,414 @@
-# Exec Radar — Source Set Definitions
-# ====================================
-# Each source set groups job boards across ATS platforms (Greenhouse,
-# Lever, Ashby).  Reference a set by name in your TargetProfile or via
-# the EXEC_RADAR_SOURCE_SET environment variable.
-#
-# Format:
-#   - name: unique_identifier
-#     description: "Human-readable description"
-#     boards:                         # Greenhouse boards
-#       board_token: "Company Name"
-#     lever_boards:                   # Lever job boards
-#       company_slug: "Company Name"
-#     ashby_boards:                   # Ashby job boards
-#       company_slug: "Company Name"
+source_sets:
+  - name: semiconductor_exec_core
+    description: >
+      High-precision set for executive semiconductor operations, supply chain,
+      industrialization, packaging, quality, and hardware program leadership.
+    profile_tags:
+      - semiconductor
+      - executive_operations
+      - supply_chain
+      - industrialization
+      - quality
+      - packaging
+      - test
+    greenhouse_boards:
+      samsungsemiconductor:
+        display_name: "Samsung Semiconductor"
+        priority: high
+        focus_tags:
+          - semiconductor
+          - operations
+          - test
+          - quality
+          - automotive
+          - photonics
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Strong semiconductor board with quality, test, and operations-adjacent
+          signals. Broad board, so some software/design noise is expected.
+      anellophotonics:
+        display_name: "ANELLO Photonics"
+        priority: high
+        focus_tags:
+          - photonics
+          - NPI
+          - materials
+          - operations
+          - industrialization
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          Very strong NPI / operations / materials signal. Good fit for
+          industrialization and hardware scale-up.
+      andurilindustries:
+        display_name: "Anduril Industries"
+        priority: medium
+        focus_tags:
+          - hardware
+          - strategic_sourcing
+          - supply_chain
+          - manufacturing
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Broad board, but useful for sourcing, hardware operations, and supply
+          chain roles.
 
-# ── Semiconductor executive operations ────────────────────────────
-- name: semiconductor_exec
-  description: >-
-    Semiconductor companies with executive operations, supply-chain,
-    and industrialization roles (IDM, fabless, foundry, OSAT).
-  boards:
-    lattice: "Lattice Semiconductor"
-    tenstorrent: "Tenstorrent"
-    allegro: "Allegro Microsystems"
-    lightmatter: "Lightmatter"
-    cerebrassystems: "Cerebras Systems"
-    sambanovasystems: "SambaNova Systems"
-    luminar: "Luminar Technologies"
-    atomicmachines: "Atomic Machines"
-    markforged: "Markforged"
-    samsara: "Samsara"
-    verkada: "Verkada"
-    astranis: "Astranis"
-  lever_boards:
-    rigetti: "Rigetti Computing"
-    aeva: "Aeva Technologies"
-  ashby_boards:
-    ramp: "Ramp"
-    cohere: "Cohere"
+    lever_boards:
+      aeva:
+        display_name: "Aeva"
+        priority: high
+        focus_tags:
+          - supply_chain
+          - photonics
+          - testing
+          - quality
+          - program_management
+        noise_risk: medium
+        regions:
+          - US
+          - Germany
+          - Thailand
+          - India
+        notes: >
+          Excellent hardware operations and supply-chain signal, with visible
+          testing, reliability, and photonics categories.
+      neye-systems-inc.:
+        display_name: "nEye Systems"
+        priority: high
+        focus_tags:
+          - OSAT
+          - wafer_packaging
+          - supply_chain
+          - photonics
+          - test
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          Strong backend semiconductor, packaging, OSAT, and supply-chain fit.
 
-# ── Deep-tech / hardware (broader than semi) ─────────────────────
-- name: deeptech_hardware
-  description: >-
-    AI-hardware, photonics, quantum, and advanced computing
-    companies with executive and operations roles.
-  boards:
-    lightmatter: "Lightmatter"
-    cerebrassystems: "Cerebras Systems"
-    tenstorrent: "Tenstorrent"
-    sambanovasystems: "SambaNova Systems"
-    graphcore: "Graphcore"
-    matx: "MATX"
-    scaleai: "Scale AI"
-    formlabs: "Formlabs"
-  lever_boards:
-    rigetti: "Rigetti Computing"
-    hermeus: "Hermeus"
-  ashby_boards:
-    notion: "Notion"
-    linear: "Linear"
+    ashby_boards:
+      taaraconnect:
+        display_name: "Taara"
+        priority: high
+        focus_tags:
+          - manufacturing_quality
+          - hardware_program
+          - supply_chain
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          Strong manufacturing, quality, and systems supply-chain signal.
+      voyant-photonics:
+        display_name: "Voyant Photonics"
+        priority: high
+        focus_tags:
+          - test
+          - manufacturing
+          - photonics
+          - hardware_program
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Strong test-development and manufacturing signal, but includes some
+          sales/software noise.
+      blacksemiconductor:
+        display_name: "Black Semiconductor"
+        priority: medium
+        focus_tags:
+          - semiconductor_process
+          - photonics
+          - facilities
+          - yield
+          - equipment
+        noise_risk: medium
+        regions:
+          - Europe
+        notes: >
+          Useful process/fab-like signal for Europe, though less executive-ops
+          dense than the core boards.
 
-# ── Broad executive operations (cross-industry) ──────────────────
-- name: broad_exec_ops
-  description: >-
-    Large companies across semiconductor, automotive, aerospace,
-    and industrial manufacturing with executive-level postings.
-  boards:
-    lattice: "Lattice Semiconductor"
-    tenstorrent: "Tenstorrent"
-    allegro: "Allegro Microsystems"
-    lucidmotors: "Lucid Motors"
-    relativity: "Relativity Space"
-    andurilindustries: "Anduril Industries"
-    archer: "Archer Aviation"
-    rocketlab: "Rocket Lab"
-    luminar: "Luminar Technologies"
-    momentus: "Momentus"
-  lever_boards:
-    aeva: "Aeva Technologies"
-    hermeus: "Hermeus"
-  ashby_boards:
-    ramp: "Ramp"
-    cohere: "Cohere"
+  - name: photonics_mems_ops
+    description: >
+      Focused on photonics, MEMS, lidar, advanced sensing, packaging, test,
+      quality, and industrial scale-up.
+    profile_tags:
+      - photonics
+      - mems
+      - hardware_scaleup
+      - test
+      - packaging
+      - supply_chain
+    greenhouse_boards:
+      anellophotonics:
+        display_name: "ANELLO Photonics"
+        priority: high
+        focus_tags:
+          - photonics
+          - NPI
+          - operations
+          - materials
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          Strong photonics operations and NPI relevance.
+      samsungsemiconductor:
+        display_name: "Samsung Semiconductor"
+        priority: medium
+        focus_tags:
+          - photonics
+          - test
+          - quality
+          - semiconductor
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Broader board, but useful photonics/test/quality signal.
+
+    lever_boards:
+      aeva:
+        display_name: "Aeva"
+        priority: high
+        focus_tags:
+          - photonics
+          - testing
+          - reliability
+          - supply_chain
+        noise_risk: medium
+        regions:
+          - US
+          - Germany
+          - Thailand
+          - India
+        notes: >
+          Very good photonics, testing, reliability, and supply-chain mix.
+      neye-systems-inc.:
+        display_name: "nEye Systems"
+        priority: high
+        focus_tags:
+          - photonics
+          - MEMS
+          - OSAT
+          - packaging
+          - supply_chain
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          Excellent fit for backend photonics / packaging / OSAT style roles.
+      lumotive:
+        display_name: "Lumotive"
+        priority: medium
+        focus_tags:
+          - photonics
+          - lidar
+          - hardware
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Good photonics adjacency, though less operations-dense than Aeva.
+
+    ashby_boards:
+      voyant-photonics:
+        display_name: "Voyant Photonics"
+        priority: high
+        focus_tags:
+          - photonics
+          - test
+          - manufacturing
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Good fit for photonics manufacturing and test-development.
+      lumilens:
+        display_name: "Lumilens"
+        priority: medium
+        focus_tags:
+          - photonics
+          - hardware
+          - test
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Useful photonics adjacency.
+      blacksemiconductor:
+        display_name: "Black Semiconductor"
+        priority: high
+        focus_tags:
+          - semiconductor_process
+          - photonics
+          - yield
+          - equipment
+        noise_risk: medium
+        regions:
+          - Europe
+        notes: >
+          Strong Europe process/fab/photonics signal.
+      taaraconnect:
+        display_name: "Taara"
+        priority: high
+        focus_tags:
+          - manufacturing_quality
+          - hardware_program
+          - supply_chain
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          Good manufacturing-quality and hardware operations relevance.
+
+  - name: broad_hardware_supply_chain
+    description: >
+      Broader advanced-hardware, sourcing, industrial operations, and
+      manufacturing leadership set. Higher volume, slightly more noise.
+    profile_tags:
+      - advanced_hardware
+      - supply_chain
+      - sourcing
+      - manufacturing
+      - quality
+    greenhouse_boards:
+      samsungsemiconductor:
+        display_name: "Samsung Semiconductor"
+        priority: high
+        focus_tags:
+          - semiconductor
+          - test
+          - quality
+          - operations
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Strong large-scale semiconductor anchor board.
+      anellophotonics:
+        display_name: "ANELLO Photonics"
+        priority: high
+        focus_tags:
+          - NPI
+          - operations
+          - materials
+          - photonics
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          High-signal small hardware board.
+      andurilindustries:
+        display_name: "Anduril Industries"
+        priority: medium
+        focus_tags:
+          - strategic_sourcing
+          - hardware
+          - supply_chain
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Broad hardware board with selective supply-chain value.
+      ambiqmicroinc:
+        display_name: "Ambiq Micro"
+        priority: medium
+        focus_tags:
+          - semiconductor
+          - low_power
+          - hardware
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Semiconductor-adjacent board, but not as ops-dense as the core set.
+
+    lever_boards:
+      aeva:
+        display_name: "Aeva"
+        priority: high
+        focus_tags:
+          - supply_chain
+          - testing
+          - reliability
+          - photonics
+        noise_risk: medium
+        regions:
+          - US
+          - Germany
+          - Thailand
+          - India
+        notes: >
+          Strong cross-functional hardware operations signal.
+      rigetti:
+        display_name: "Rigetti Computing"
+        priority: medium
+        focus_tags:
+          - supply_chain
+          - hardware
+          - advanced_manufacturing
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Useful broader hardware and supply-chain adjacency.
+      lumotive:
+        display_name: "Lumotive"
+        priority: medium
+        focus_tags:
+          - photonics
+          - hardware
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Good photonics adjacency, moderate ops density.
+
+    ashby_boards:
+      taaraconnect:
+        display_name: "Taara"
+        priority: high
+        focus_tags:
+          - manufacturing_quality
+          - hardware_program
+          - supply_chain
+        noise_risk: low
+        regions:
+          - US
+        notes: >
+          High-signal board for manufacturing-quality and supply chain.
+      voyant-photonics:
+        display_name: "Voyant Photonics"
+        priority: high
+        focus_tags:
+          - photonics
+          - test
+          - manufacturing
+        noise_risk: medium
+        regions:
+          - US
+        notes: >
+          Good test and manufacturing depth.
+      blacksemiconductor:
+        display_name: "Black Semiconductor"
+        priority: medium
+        focus_tags:
+          - semiconductor_process
+          - photonics
+          - yield
+        noise_risk: medium
+        regions:
+          - Europe
+        notes: >
+          Strong Europe semiconductor-process adjacency.
+
+defaults:
+  preferred_source_set: semiconductor_exec_core
